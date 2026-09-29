@@ -276,7 +276,7 @@ int main()
                 printf("Digite o dado(0 a 255): ");
 
 
-                if (scanf("%u", &dado) != 1 | | dado > 255) {
+                if (scanf("%u", &dado) != 1 || dado > 255) {
                     printf("Dado invalido. Digite um valor entre 0 e 255.\n");
                     limpar_buffer();
                     break;
