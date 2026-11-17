@@ -620,13 +620,6 @@ void alternar_protecao_rom(MemoriaSistema *mem)
  * INTERFACE DE MENU E INTERAÇÃO COM O USUÁRIO (MENU FIXO)
  * ============================================================================== */
 
-typedef enum {
-    MODO_PADRAO = 0,
-    MODO_MENSAGEM,
-    MODO_DASHBOARD,
-    MODO_HEXDUMP
-} ModoPainel;
-
 /* Limpa a tela do console mantendo o menu em posicao fixa */
 void limpar_tela(void)
 {
@@ -640,8 +633,18 @@ void limpar_tela(void)
 #endif
 }
 
+/* Pausa para que o usuario leia a saida da operacao antes de retornar ao menu fixo */
+void pausar_tela(void)
+{
+    printf("\nPressione [ENTER] para continuar...");
+    char temp[64];
+    if (fgets(temp, sizeof(temp), stdin) == NULL) {
+        // Trata fim de arquivo (EOF)
+    }
+}
+
 /* Exibe o cabecalho institucional e o estado em tempo real dos registradores */
-void exibir_cabecalho(const MemoriaSistema *mem)
+void exibir_cabecalho(const MemoriaSistema *mem, const char *msg_status)
 {
     printf("********************************************************************************\n");
     printf("*            UNIVERSIDADE FEDERAL DO MARANHÃO - CCET - DEINF                   *\n");
@@ -652,9 +655,12 @@ void exibir_cabecalho(const MemoriaSistema *mem)
     printf(" Estado: MAR=0x%03X (%4d) | MBR=0x%02X (%3d, '%c') | Sinal: %s\n",
            mem->mar, mem->mar, mem->mbr, mem->mbr,
            caractere_ascii(mem->mbr), nome_sinal_barramento(mem->ultimo_sinal));
+    if (msg_status != NULL && msg_status[0] != '\0') {
+        printf(" Ultimo: %s\n", msg_status);
+    }
 }
 
-/* Exibe o menu principal de opcoes (sempre mantido fixo no topo da tela) */
+/* Exibe o menu principal de opcoes sempre acoplado com o prompt de escolha */
 void exibir_menu(const MemoriaSistema *mem)
 {
     printf("================================================================================\n");
@@ -666,6 +672,7 @@ void exibir_menu(const MemoriaSistema *mem)
     printf(" [3] Abrir DASHBOARD Completo         [7] Limpar / Zerar Memoria                \n");
     printf(" [4] Exibir Hex Dump / Mapa           [0] Sair do Simulador                     \n");
     printf("================================================================================\n");
+    printf(" Escolha uma opcao: ");
 }
 
 /* ==============================================================================
@@ -677,32 +684,14 @@ int main(void)
     MemoriaSistema memoria;
     inicializar_memoria(&memoria);
 
-    ModoPainel modo_painel = MODO_PADRAO;
-    int hexdump_modo = 1;
-    char painel_mensagem[2048] = "";
-
+    char msg_status[256] = "Sistema pronto. Selecione uma operacao.";
     int opcao = -1;
 
     do {
-        // Menu SEMPRE fixado no topo da tela
+        // Limpa a tela e mantem o menu fixado junto com o prompt de input
         limpar_tela();
-        exibir_cabecalho(&memoria);
+        exibir_cabecalho(&memoria, msg_status);
         exibir_menu(&memoria);
-
-        // Renderiza o painel ativo diretamente abaixo do menu fixo
-        if (modo_painel == MODO_DASHBOARD) {
-            exibir_dashboard(&memoria);
-        } else if (modo_painel == MODO_HEXDUMP) {
-            exibir_hexdump_memoria(&memoria, hexdump_modo);
-        } else if (modo_painel == MODO_MENSAGEM && painel_mensagem[0] != '\0') {
-            printf("%s\n", painel_mensagem);
-            printf("================================================================================\n");
-        } else {
-            printf(" >>> PAINEL DE STATUS: Simulador inicializado e pronto. Digite uma opcao [0-7].\n");
-            printf("================================================================================\n");
-        }
-
-        printf(" Escolha uma opcao: ");
 
         char linha_opcao[64];
         if (fgets(linha_opcao, sizeof(linha_opcao), stdin) == NULL) {
@@ -711,10 +700,9 @@ int main(void)
 
         long val_op;
         if (!interpretar_numero(linha_opcao, &val_op)) {
-            snprintf(painel_mensagem, sizeof(painel_mensagem),
-                     "================================================================================\n"
-                     " [AVISO] Opcao invalida! Digite um numero entre 0 e 7.");
-            modo_painel = MODO_MENSAGEM;
+            printf("\nOpcao invalida. Digite um numero de 0 a 7.\n");
+            snprintf(msg_status, sizeof(msg_status), "Opcao invalida! Digite um numero de 0 a 7.");
+            pausar_tela();
             continue;
         }
 
@@ -728,47 +716,26 @@ int main(void)
                 long endereco;
                 if (!ler_inteiro_validado("Digite o Endereco (0 a 4095 / 0x000 a 0xFFF): ",
                                           0, TAM_MEMORIA - 1, &endereco)) {
-                    snprintf(painel_mensagem, sizeof(painel_mensagem),
-                             "================================================================================\n"
-                             " [ERRO] Endereco invalido ou fora da faixa permitida (0 a 4095)!");
-                    modo_painel = MODO_MENSAGEM;
+                    snprintf(msg_status, sizeof(msg_status), "Falha na escrita: endereco invalido.");
                     break;
                 }
 
                 long dado;
                 if (!ler_inteiro_validado("Digite o Dado a ser gravado (0 a 255 / 0x00 a 0xFF): ",
                                           0, 255, &dado)) {
-                    snprintf(painel_mensagem, sizeof(painel_mensagem),
-                             "================================================================================\n"
-                             " [ERRO] Dado invalido ou fora da faixa permitida (0 a 255)!");
-                    modo_painel = MODO_MENSAGEM;
+                    snprintf(msg_status, sizeof(msg_status), "Falha na escrita: dado invalido.");
                     break;
                 }
 
+                escrever_memoria(&memoria, (int)endereco, (uint8_t)dado);
                 if (eh_regiao_rom((int)endereco) && memoria.rom_protegida) {
-                    escrever_memoria(&memoria, (int)endereco, (uint8_t)dado);
-                    snprintf(painel_mensagem, sizeof(painel_mensagem),
-                             "================================================================================\n"
-                             " [!] VIOLACAO DE PROTECAO DE MEMORIA (Sinal: PROT_FAULT)\n"
-                             "--------------------------------------------------------------------------------\n"
-                             " Endereco requisitado : 0x%03lX (%ld) -> REGIAO ROM (0x000 a 0x0FF)\n"
-                             " Causa: A regiao ROM e protegida contra escrita. Altere no menu [6] se desejar.",
-                             endereco, endereco);
+                    snprintf(msg_status, sizeof(msg_status),
+                             "Tentativa de escrita bloqueada: ROM protegida em 0x%03lX (%ld).", endereco, endereco);
                 } else {
-                    escrever_memoria(&memoria, (int)endereco, (uint8_t)dado);
-                    char bin[9];
-                    byte_para_binario((uint8_t)dado, bin);
-                    snprintf(painel_mensagem, sizeof(painel_mensagem),
-                             "================================================================================\n"
-                             " >>> ESCRITA REALIZADA COM SUCESSO (Sinal de Barramento: MEMW)\n"
-                             "--------------------------------------------------------------------------------\n"
-                             " * Segmento       : %s\n"
-                             " * MAR (Endereco) : 0x%03lX (Decimal: %4ld)\n"
-                             " * MBR (Dado)     : 0x%02lX  (Decimal: %4ld | Bin: 0b%s | ASCII: '%c')",
-                             eh_regiao_rom((int)endereco) ? "ROM (Firmware/BIOS)" : "RAM (Dados/Variaveis)",
-                             endereco, endereco, dado, dado, bin, caractere_ascii((uint8_t)dado));
+                    snprintf(msg_status, sizeof(msg_status),
+                             "MEMW: Gravado dado 0x%02lX (%ld, '%c') no endereco 0x%03lX (%ld).",
+                             dado, dado, caractere_ascii((uint8_t)dado), endereco, endereco);
                 }
-                modo_painel = MODO_MENSAGEM;
                 break;
             }
 
@@ -779,34 +746,20 @@ int main(void)
                 long endereco;
                 if (!ler_inteiro_validado("Digite o Endereco para leitura (0 a 4095 / 0x000 a 0xFFF): ",
                                           0, TAM_MEMORIA - 1, &endereco)) {
-                    snprintf(painel_mensagem, sizeof(painel_mensagem),
-                             "================================================================================\n"
-                             " [ERRO] Endereco para leitura invalido ou fora da faixa permitida (0 a 4095)!");
-                    modo_painel = MODO_MENSAGEM;
+                    snprintf(msg_status, sizeof(msg_status), "Falha na leitura: endereco invalido.");
                     break;
                 }
 
                 ler_memoria(&memoria, (int)endereco);
-                char bin[9];
-                byte_para_binario(memoria.mbr, bin);
-                snprintf(painel_mensagem, sizeof(painel_mensagem),
-                         "================================================================================\n"
-                         " >>> LEITURA REALIZADA COM SUCESSO (Sinal de Barramento: MEMR)\n"
-                         "--------------------------------------------------------------------------------\n"
-                         " * Segmento       : %s\n"
-                         " * MAR (Endereco) : 0x%03lX (Decimal: %4ld)\n"
-                         " * Estado Celula  : %s\n"
-                         " * MBR (Dado Lido): 0x%02X  (Decimal: %4d | Bin: 0b%s | ASCII: '%c')",
-                         eh_regiao_rom((int)endereco) ? "ROM [Somente Leitura]" : "RAM [Leitura/Escrita]",
-                         endereco, endereco,
-                         memoria.ocupado[endereco] ? "OCUPADA (Dado gravado)" : "VAZIA (Valor padrao 0x00)",
-                         memoria.mbr, memoria.mbr, bin, caractere_ascii(memoria.mbr));
-                modo_painel = MODO_MENSAGEM;
+                snprintf(msg_status, sizeof(msg_status),
+                         "MEMR: Lido dado 0x%02X (%d, '%c') do endereco 0x%03lX (%ld).",
+                         memoria.mbr, memoria.mbr, caractere_ascii(memoria.mbr), endereco, endereco);
                 break;
             }
 
             case 3: {
-                modo_painel = MODO_DASHBOARD;
+                exibir_dashboard(&memoria);
+                snprintf(msg_status, sizeof(msg_status), "Dashboard de memoria e registradores visualizado.");
                 break;
             }
 
@@ -821,21 +774,19 @@ int main(void)
                     long modo;
                     if (interpretar_numero(resp, &modo)) {
                         if (modo == 1) {
-                            hexdump_modo = 1;
-                            modo_painel = MODO_HEXDUMP;
+                            exibir_hexdump_memoria(&memoria, 1);
+                            snprintf(msg_status, sizeof(msg_status), "Hex dump compacto exibido.");
                         } else if (modo == 2) {
                             exibir_hexdump_memoria(&memoria, 0);
-                            printf("\nPressione [ENTER] para retornar ao menu fixo...");
-                            char temp[64];
-                            (void)fgets(temp, sizeof(temp), stdin);
-                            modo_painel = MODO_PADRAO;
+                            snprintf(msg_status, sizeof(msg_status), "Hex dump completo (4096 bytes) exibido.");
                         } else {
-                            hexdump_modo = 1;
-                            modo_painel = MODO_HEXDUMP;
+                            printf("Opcao invalida. Exibindo modo compacto.\n");
+                            exibir_hexdump_memoria(&memoria, 1);
+                            snprintf(msg_status, sizeof(msg_status), "Hex dump compacto exibido.");
                         }
                     } else {
-                        hexdump_modo = 1;
-                        modo_painel = MODO_HEXDUMP;
+                        exibir_hexdump_memoria(&memoria, 1);
+                        snprintf(msg_status, sizeof(msg_status), "Hex dump compacto exibido.");
                     }
                 }
                 break;
@@ -843,27 +794,15 @@ int main(void)
 
             case 5: {
                 carregar_programa_demonstracao(&memoria);
-                snprintf(painel_mensagem, sizeof(painel_mensagem),
-                         "================================================================================\n"
-                         " >>> PROGRAMA DE DEMONSTRACAO CARREGADO COM SUCESSO! <<<\n"
-                         "--------------------------------------------------------------------------------\n"
-                         " * ROM (0x000 - 0x0FF): Firmware BIOS e Vetores de Boot carregados.\n"
-                         " * RAM (0x100 - 0x140): Variaveis e bloco de dados inicializados com sucesso.");
-                modo_painel = MODO_MENSAGEM;
+                snprintf(msg_status, sizeof(msg_status), "Programa demo (BIOS e RAM) carregado com sucesso.");
                 break;
             }
 
             case 6: {
                 alternar_protecao_rom(&memoria);
-                snprintf(painel_mensagem, sizeof(painel_mensagem),
-                         "================================================================================\n"
-                         " >>> STATUS DE PROTECAO DA ROM ALTERADO <<<\n"
-                         "--------------------------------------------------------------------------------\n"
-                         " Novo estado: %s",
-                         memoria.rom_protegida ?
-                         "PROTEGIDA CONTRA ESCRITA (Padrao de Fabrica / Read-Only)" :
-                         "DESBLOQUEADA (Permite escrita na ROM para testes de gravacao)");
-                modo_painel = MODO_MENSAGEM;
+                snprintf(msg_status, sizeof(msg_status),
+                         "Protecao da ROM alterada para: %s.",
+                         memoria.rom_protegida ? "PROTEGIDA" : "LIBERADA");
                 break;
             }
 
@@ -880,26 +819,19 @@ int main(void)
                     if (interpretar_numero(resp, &modo_limpeza)) {
                         if (modo_limpeza == 1) {
                             limpar_memoria(&memoria, 0);
-                            snprintf(painel_mensagem, sizeof(painel_mensagem),
-                                     "================================================================================\n"
-                                     " >>> MEMORIA RAM LIMPA COM SUCESSO! A regiao ROM foi preservada.");
+                            snprintf(msg_status, sizeof(msg_status), "Memoria RAM limpa (ROM preservada).");
                         } else if (modo_limpeza == 2) {
                             limpar_memoria(&memoria, 1);
-                            snprintf(painel_mensagem, sizeof(painel_mensagem),
-                                     "================================================================================\n"
-                                     " >>> RESET TOTAL DO SISTEMA REALIZADO: ROM e RAM completamente zeradas!");
+                            snprintf(msg_status, sizeof(msg_status), "Reset total do sistema realizado com sucesso.");
                         } else if (modo_limpeza == 0) {
-                            snprintf(painel_mensagem, sizeof(painel_mensagem),
-                                     "================================================================================\n"
-                                     " [INFO] Operacao de limpeza cancelada.");
+                            printf("Operacao cancelada.\n");
+                            snprintf(msg_status, sizeof(msg_status), "Operacao de limpeza cancelada.");
                         } else {
-                            snprintf(painel_mensagem, sizeof(painel_mensagem),
-                                     "================================================================================\n"
-                                     " [AVISO] Opcao de limpeza invalida!");
+                            printf("Opcao invalida.\n");
+                            snprintf(msg_status, sizeof(msg_status), "Opcao de limpeza invalida.");
                         }
                     }
                 }
-                modo_painel = MODO_MENSAGEM;
                 break;
             }
 
@@ -912,12 +844,14 @@ int main(void)
             }
 
             default: {
-                snprintf(painel_mensagem, sizeof(painel_mensagem),
-                         "================================================================================\n"
-                         " [AVISO] Opcao inexistente! Escolha entre 0 e 7.");
-                modo_painel = MODO_MENSAGEM;
+                printf("\nOpcao inexistente! Escolha entre 0 e 7.\n");
+                snprintf(msg_status, sizeof(msg_status), "Opcao inexistente! Escolha entre 0 e 7.");
                 break;
             }
+        }
+
+        if (opcao != 0) {
+            pausar_tela();
         }
 
     } while (opcao != 0);
