@@ -1,0 +1,276 @@
+// ==============================================================================
+// UFMA - SISTEMA DE NOTAS ACADÊMICO & HARDWARE BUS MONITOR
+// FRONT-END GRÁFICO (CONEXÃO COM BACK-END EM C VIA REST)
+// ==============================================================================
+
+const API_BASE = '';
+let estadoAtual = null;
+let alertaTimer = null;
+
+// Inicializa a aplicação
+document.addEventListener('DOMContentLoaded', () => {
+  atualizarDados();
+  // Polling em tempo real a cada 300ms
+  setInterval(atualizarDados, 300);
+});
+
+// Busca o estado completo do hardware no back-end em C
+async function atualizarDados() {
+  try {
+    const res = await fetch(`${API_BASE}/api/estado`);
+    if (!res.ok) throw new Error('Falha HTTP');
+    const data = await res.json();
+    estadoAtual = data;
+    renderizarInterface(data);
+    marcarStatusBackend(true);
+  } catch (err) {
+    marcarStatusBackend(false);
+  }
+}
+
+function marcarStatusBackend(online) {
+  const el = document.getElementById('backend-status');
+  if (online) {
+    el.className = 'status-indicator online';
+    el.innerHTML = '<span class="pulse"></span><span>Back-end em C: Conectado</span>';
+  } else {
+    el.className = 'status-indicator offline';
+    el.innerHTML = '<span class="pulse" style="background:#ef4444;box-shadow:none;"></span><span>Back-end em C: Desconectado</span>';
+  }
+}
+
+// Renderiza todos os painéis visuais
+function renderizarInterface(data) {
+  // 1. Registradores e Barramento
+  document.getElementById('val-mar-hex').textContent = data.mar_hex;
+  document.getElementById('val-mar-dec').textContent = `(End. ${data.mar})`;
+  document.getElementById('val-mbr-hex').textContent = data.mbr_hex;
+  document.getElementById('val-mbr-char').textContent = `'${data.mbr_char}'`;
+  document.getElementById('val-mbr-dec').textContent = `(${data.mbr})`;
+
+  const tagSinal = document.getElementById('val-sinal-tag');
+  tagSinal.textContent = data.sinal_str;
+  tagSinal.className = 'signal-tag';
+  if (data.sinal_codigo === 1) tagSinal.classList.add('read');
+  else if (data.sinal_codigo === 2) tagSinal.classList.add('write');
+  else if (data.sinal_codigo === 3) tagSinal.classList.add('fault');
+
+  document.getElementById('val-mpu-status').textContent =
+    data.rom_protegida ? 'MPU: Protegida (Ativa)' : 'MPU: Desprotegida';
+
+  // 2. Segmentos de Memória
+  const segs = data.segmentos;
+  atualizarBarra('rom', segs.rom.usados, segs.rom.total, `${segs.rom.usados} / ${segs.rom.total} B (100%)`);
+  atualizarBarra('text', segs.text.usados, segs.text.total, `${segs.text.usados} / ${segs.text.total} B`);
+  atualizarBarra('data', segs.data.usados, segs.data.total, `${segs.data.usados} / ${segs.data.total} B`);
+  atualizarBarra('heap', segs.heap.usados, segs.heap.total, `${segs.heap.usados} / ${segs.heap.total} B • Topo: ${segs.heap.topo}`);
+  atualizarBarra('stack', segs.stack.usados, segs.stack.total, `${segs.stack.usados} / ${segs.stack.total} B • SP: ${segs.stack.sp}`);
+
+  // 3. Tabela do Diário de Classe
+  renderizarTabelaAlunos(data.alunos);
+
+  // 4. Log do Barramento
+  document.getElementById('log-text').textContent = data.ultimo_log;
+
+  // 5. Canvas Heatmap de 4 KB
+  desenharCanvasMemoria(data);
+
+  // 6. Hex Dump
+  renderizarHexDump(data.dump, data.mar);
+}
+
+function atualizarBarra(tipo, usados, total, texto) {
+  const pct = Math.min(100, Math.max(1, (usados / total) * 100));
+  const elBar = document.getElementById(`bar-${tipo}`);
+  const elStats = document.getElementById(`stats-${tipo}`);
+  if (elBar) elBar.style.width = `${pct}%`;
+  if (elStats) elStats.textContent = texto;
+}
+
+// Renderiza a tabela de alunos lida da RAM simulada
+function renderizarTabelaAlunos(alunos) {
+  const corpo = document.getElementById('tabela-alunos-corpo');
+  document.getElementById('total-alunos-count').textContent = alunos.length;
+
+  if (alunos.length === 0) {
+    corpo.innerHTML = `<tr><td colspan="9" class="empty-state">Nenhum aluno matriculado no HEAP. Preencha o formulário acima!</td></tr>`;
+    return;
+  }
+
+  corpo.innerHTML = alunos.map(aluno => {
+    let statusClass = 'cursando';
+    let statusLabel = 'Pendente';
+    if (aluno.status === 'A') { statusClass = 'aprovado'; statusLabel = 'Aprovado'; }
+    else if (aluno.status === 'R') { statusClass = 'reprovado'; statusLabel = 'Reprovado'; }
+    else if (aluno.status === 'F') { statusClass = 'final'; statusLabel = 'Prova Final'; }
+
+    return `
+      <tr>
+        <td><strong>#${aluno.id}</strong></td>
+        <td><strong>${aluno.nome}</strong></td>
+        <td class="addr">${aluno.endereco}</td>
+        <td>${aluno.p1.toFixed(1)}</td>
+        <td>${aluno.p2.toFixed(1)}</td>
+        <td><strong>${aluno.media > 0 ? aluno.media.toFixed(1) : '-'}</strong></td>
+        <td>${aluno.freq}%</td>
+        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+        <td>
+          <button class="btn-trash" onclick="trancarMatricula(${aluno.id})" title="Trancar Matrícula (Liberar 24 B no HEAP)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Desenha a matriz visual de 4096 bytes no canvas
+function desenharCanvasMemoria(data) {
+  const canvas = document.getElementById('memory-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cols = 64;
+  const rows = 64; // 64 * 64 = 4096 células!
+  const cellWidth = canvas.width / cols;
+  const cellHeight = canvas.height / rows;
+
+  ctx.fillStyle = '#030712';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < 4096; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = col * cellWidth;
+    const y = row * cellHeight;
+
+    // Cor por região
+    if (i < 256) ctx.fillStyle = '#ef4444'; // ROM
+    else if (i < 0x400) ctx.fillStyle = '#38bdf8'; // TEXT
+    else if (i < 0x800) ctx.fillStyle = '#10b981'; // DATA
+    else if (i < 0xC00) {
+      // HEAP: preenchido até heap_pointer
+      const heapTopo = parseInt(data.segmentos.heap.topo, 16);
+      ctx.fillStyle = (i < heapTopo) ? '#f59e0b' : '#332005';
+    } else {
+      // STACK: preenchido de stack_pointer até 0xFFF
+      const stackSP = parseInt(data.segmentos.stack.sp, 16);
+      ctx.fillStyle = (i >= stackSP) ? '#a855f7' : '#1e102d';
+    }
+
+    ctx.fillRect(x, y, cellWidth - 0.5, cellHeight - 0.5);
+
+    // Destaca em dourado brilhante a célula onde o MAR está posicionado
+    if (i === data.mar) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x - 1, y - 1, cellWidth + 2, cellHeight + 2);
+    }
+  }
+}
+
+// Renderiza o grid de Hex Dump
+function renderizarHexDump(dump, marAtual) {
+  const grid = document.getElementById('dump-grid-container');
+  if (!grid || !dump) return;
+
+  if (dump.length > 0) {
+    const minAddr = dump[0].addr.toString(16).toUpperCase().padStart(3, '0');
+    const maxAddr = dump[dump.length - 1].addr.toString(16).toUpperCase().padStart(3, '0');
+    document.getElementById('dump-range-label').textContent = `0x${minAddr} a 0x${maxAddr}`;
+  }
+
+  grid.innerHTML = dump.map(byte => {
+    const isMar = (byte.addr === marAtual);
+    const isOcc = byte.ocupado;
+    return `
+      <div class="dump-cell ${isMar ? 'active-mar' : ''} ${isOcc ? 'occupied' : ''}" title="End. 0x${byte.addr.toString(16).toUpperCase()}: ${byte.val} ('${byte.char}')">
+        ${byte.hex}
+      </div>
+    `;
+  }).join('');
+}
+
+// AÇÕES DO USUÁRIO ENVIADAS PARA O BACK-END EM C
+
+// 1. Cadastra Aluno
+async function cadastrarAluno(e) {
+  e.preventDefault();
+  const nome = document.getElementById('nome-aluno').value.trim();
+  const p1 = Math.round(parseFloat(document.getElementById('p1-aluno').value) * 10);
+  const p2 = Math.round(parseFloat(document.getElementById('p2-aluno').value) * 10);
+  const freq = parseInt(document.getElementById('freq-aluno').value, 10);
+
+  if (!nome) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/aluno`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, p1, p2, freq })
+    });
+    if (res.ok) {
+      document.getElementById('nome-aluno').value = '';
+      atualizarDados();
+    }
+  } catch (err) {
+    alert('Erro ao comunicar com o back-end em C!');
+  }
+}
+
+// 2. Calcula Médias na STACK
+async function calcularMedias() {
+  try {
+    await fetch(`${API_BASE}/api/calcular`, { method: 'POST' });
+    atualizarDados();
+  } catch (err) {
+    alert('Erro ao executar rotina de cálculo na STACK!');
+  }
+}
+
+// 3. Tenta Alterar Regra na ROM (Gera violação MPU)
+async function tentarHackearRom() {
+  try {
+    const res = await fetch(`${API_BASE}/api/hack-rom`, { method: 'POST' });
+    const data = await res.json();
+
+    // Dispara alerta visual na tela
+    const alerta = document.getElementById('alerta-mpu');
+    document.getElementById('alerta-mpu-msg').textContent =
+      'A MPU de hardware interceptou a instrução MEMW no endereço 0x070 e emitiu o sinal BUS_PROT_FAULT! A média da UFMA permanece protegida em 7.0.';
+    alerta.classList.add('active');
+
+    if (alertaTimer) clearTimeout(alertaTimer);
+    alertaTimer = setTimeout(() => {
+      alerta.classList.remove('active');
+    }, 6000);
+
+    atualizarDados();
+  } catch (err) {
+    alert('Erro ao tentar teste de violação!');
+  }
+}
+
+// 4. Tranca Matrícula
+async function trancarMatricula(id) {
+  if (!confirm(`Deseja realmente trancar a matrícula do aluno #${id} e liberar seus 24 bytes no HEAP?`)) return;
+  try {
+    await fetch(`${API_BASE}/api/trancar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    atualizarDados();
+  } catch (err) {
+    alert('Erro ao trancar matrícula!');
+  }
+}
+
+// 5. Reset de Hardware
+async function executarReset() {
+  if (!confirm('Deseja executar o ciclo de Reset a Frio e reinicializar todos os 4096 bytes da memória?')) return;
+  try {
+    await fetch(`${API_BASE}/api/reset`, { method: 'POST' });
+    atualizarDados();
+  } catch (err) {
+    alert('Erro ao resetar hardware!');
+  }
+}
