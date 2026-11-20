@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultados de Execução — Simulador de Memória RAM/ROM | UFMA</title>
+  <style>
+    :root {
+      --bg-primary: #0a0f1d;
+      --bg-secondary: #131b2e;
+      --bg-card: #1a243b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --accent-gold: #fbbf24;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Contêiner principal do Slide Deck com ajuste 100% responsivo */
+    #deck-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 80% 20%, #15223c 0%, #0a0f1d 75%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Barra Superior de Contexto e Controles Unificados */
+    header.deck-header {
+      height: 52px;
+      min-height: 52px;
+      padding: 0 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+
+    .brand-tag {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .brand-tag span.badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .slide-counter {
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .header-btn {
+      height: 32px;
+      padding: 0 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: #e2e8f0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .header-btn:hover {
+      background: var(--accent);
+      color: #0a0f1d;
+      border-color: var(--accent);
+    }
+
+    .header-btn.highlight {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .header-btn.highlight:hover {
+      background: var(--accent);
+      color: #0a0f1d;
+    }
+
+    /* Área Central de Slides */
+    main.slides-viewport {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100% - 52px - 34px);
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(25px);
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      padding: 24px 44px 20px;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    /* ========================================================
+       SLIDE 1: CAPA ACADÊMICA
+       ======================================================== */
+    .slide-cover {
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding-left: 64px;
+      padding-right: 64px;
+    }
+
+    .cover-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 5px 14px;
+      border-radius: 9999px;
+      color: var(--accent);
+      font-size: 14.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .cover-title {
+      font-size: clamp(42px, 4.6vw, 62px);
+      font-weight: 800;
+      line-height: 1.1;
+      color: #ffffff;
+      margin-bottom: 14px;
+      letter-spacing: -0.02em;
+      max-width: 950px;
+    }
+
+    .cover-title span.highlight {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cover-subtitle {
+      font-size: clamp(20px, 2.0vw, 24px);
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-bottom: 36px;
+      max-width: 840px;
+      line-height: 1.4;
+    }
+
+    .cover-authors-box {
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+    }
+
+    .authors-col p.label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .authors-col p.names {
+      font-size: clamp(15.5px, 1.45vw, 17.5px);
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+
+    .location-col {
+      text-align: right;
+    }
+
+    .location-col p.institution {
+      font-size: 15px;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
+    .location-col p.year {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ========================================================
+       SLIDES DE CONTEÚDO (DUAS COLUNAS: TEXTO + IMAGEM)
+       ======================================================== */
+    .slide-content-split {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 46% 54%;
+      gap: 36px;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Coluna de Texto */
+    .slide-text-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-height: 100%;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    /* Estilização suave para scrollbar se necessário em telas muito baixas */
+    .slide-text-col::-webkit-scrollbar {
+      width: 4px;
+    }
+    .slide-text-col::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .category-kicker {
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .category-kicker::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .slide-headline {
+      font-size: clamp(40px, 4.2vw, 54px);
+      font-weight: 800;
+      line-height: 1.15;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .idea-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.05);
+      border-left: 3px solid var(--accent);
+      padding: 6px 14px;
+      font-size: clamp(17px, 1.7vw, 20px);
+      font-weight: 500;
+      color: #e2e8f0;
+      margin-bottom: 20px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(12px, 1.8vh, 18px);
+    }
+
+    .bullet-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: clamp(24px, 2.3vw, 29px);
+      line-height: 1.35;
+      color: #e2e8f0;
+    }
+
+    .bullet-bullet {
+      min-width: 9px;
+      height: 9px;
+      margin-top: 10px;
+      background: var(--accent);
+      border-radius: 2px;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .bullet-item strong {
+      color: #38bdf8;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* Coluna de Imagem / Evidência */
+    .slide-visual-col {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .image-card {
+      width: 100%;
+      height: calc(100% - 24px);
+      background: #ffffff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      cursor: zoom-in;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px;
+    }
+
+    .image-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 45px -8px rgba(56, 189, 248, 0.25);
+    }
+
+    .image-card img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .zoom-hint {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(6px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      opacity: 0.85;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .image-card:hover .zoom-hint {
+      opacity: 1;
+    }
+
+    .source-caption {
+      margin-top: 6px;
+      width: 100%;
+      text-align: right;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* Card de Mapeamento de Memória por Tipologia */
+    .memory-map-card {
+      width: 100%;
+      height: calc(100% - 24px);
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6);
+    }
+
+    .map-header {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .map-header span.badge-total {
+      background: rgba(56, 189, 248, 0.15);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .memory-stack-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+      margin-top: 6px;
+    }
+
+    .mem-block {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+
+    .mem-block:hover {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .mem-block.rom-block {
+      border-left: 4px solid #ef4444;
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .mem-block.text-block {
+      border-left: 4px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .mem-block.data-block {
+      border-left: 4px solid #10b981;
+      background: rgba(16, 185, 129, 0.06);
+    }
+    .mem-block.heap-block {
+      border-left: 4px solid #f59e0b;
+      background: rgba(245, 158, 11, 0.06);
+    }
+    .mem-block.stack-block {
+      border-left: 4px solid #a855f7;
+      background: rgba(168, 85, 247, 0.06);
+    }
+
+    .mem-range {
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: #cbd5e1;
+      min-width: 120px;
+    }
+
+    .mem-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      flex: 1;
+      padding: 0 12px;
+    }
+
+    .mem-size {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px 9px;
+      border-radius: 4px;
+    }
+
+    .mem-grow-arrow {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      letter-spacing: 0.06em;
+      opacity: 0.8;
+    }
+
+    /* ========================================================
+       SLIDE 10: CONCLUSÃO E SÍNTESE (LISTA VERTICAL SEM CARDS)
+       ======================================================== */
+    .slide-conclusion {
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 36px 72px;
+    }
+
+    .conclusion-headline {
+      font-size: clamp(52px, 5.2vw, 64px) !important;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px !important;
+      line-height: 1.1 !important;
+    }
+
+    .conclusion-badge {
+      font-size: clamp(18px, 1.8vw, 22px) !important;
+      padding: 8px 16px !important;
+      margin-bottom: 28px !important;
+    }
+
+    .conclusion-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(16px, 2.2vh, 22px);
+      width: 100%;
+      max-width: 1450px;
+    }
+
+    .conclusion-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      font-size: clamp(26px, 2.5vw, 32px);
+      line-height: 1.35;
+      color: #e2e8f0;
+    }
+
+    .conclusion-bullet {
+      min-width: 11px;
+      height: 11px;
+      margin-top: 13px;
+      background: var(--accent);
+      border-radius: 2px;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .conclusion-item strong {
+      color: #38bdf8;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    /* Barra Inferior Fixa com Telemetria e Atalhos */
+    footer.deck-footer {
+      height: 34px;
+      min-height: 34px;
+      width: 100%;
+      background: rgba(10, 15, 29, 0.9);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 36px;
+      position: relative;
+      z-index: 100;
+    }
+
+    /* Barra de progresso discreta no topo do footer */
+    .progress-bar-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+      width: 12.5%;
+      transition: width 0.3s ease;
+    }
+
+    .footer-hints {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .key-badge {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #cbd5e1;
+      font-size: 11px;
+    }
+
+    .footer-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* ========================================================
+       MODAL LIGHTBOX PARA DIAGRAMAS
+       ======================================================== */
+    #image-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.94);
+      backdrop-filter: blur(12px);
+      z-index: 1000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      cursor: zoom-out;
+    }
+
+    #image-modal.open {
+      display: flex;
+    }
+
+    #image-modal img {
+      max-width: 95vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+      background: #ffffff;
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 28px;
+      color: #ffffff;
+      font-size: 34px;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.8;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-close-btn:hover {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .modal-caption {
+      position: absolute;
+      bottom: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* ========================================================
+       ESTILOS EXCLUSIVOS PARA IMPRESSÃO / EXPORTAÇÃO EM PDF
+       ======================================================== */
+    @media print {
+      @page {
+        size: 1920px 1080px;
+        margin: 0;
+      }
+
+      html, body {
+        width: 1920px !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #0a0f1d !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      #deck-container {
+        width: 1920px !important;
+        height: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        background: transparent !important;
+        display: block !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+      }
+
+      header.deck-header,
+      footer.deck-footer,
+      #image-modal,
+      .zoom-hint {
+        display: none !important;
+      }
+
+      main.slides-viewport {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+
+      .slide {
+        display: flex !important;
+        position: relative !important;
+        width: 1920px !important;
+        height: 1080px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        pointer-events: auto !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        background: radial-gradient(circle at 80% 20%, #15223c 0%, #0a0f1d 75%) !important;
+        box-sizing: border-box !important;
+        padding: 80px 100px 60px !important;
+        overflow: hidden !important;
+      }
+
+      /* Cabeçalho acadêmico impresso em cada slide (exceto capa) */
+      .slide::before {
+        content: "UFMA • CCET • DEINF — ARQUITETURA DE COMPUTADORES (2026)";
+        position: absolute;
+        top: 36px;
+        left: 100px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        text-transform: uppercase;
+      }
+
+      /* Numeração de slide impressa */
+      .slide::after {
+        content: "Slide " attr(data-slide) " / 10";
+        position: absolute;
+        top: 36px;
+        right: 100px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #38bdf8;
+        letter-spacing: 0.06em;
+      }
+
+      .slide-cover::before,
+      .slide-cover::after {
+        display: none !important;
+      }
+
+      /* Slide 1: Capa */
+      .slide-cover {
+        padding-left: 120px !important;
+        padding-right: 120px !important;
+        justify-content: center !important;
+      }
+
+      .cover-meta {
+        font-size: 16px !important;
+        padding: 6px 18px !important;
+        margin-bottom: 24px !important;
+      }
+
+      .cover-title {
+        font-size: 64px !important;
+        margin-bottom: 20px !important;
+      }
+
+      .cover-subtitle {
+        font-size: 26px !important;
+        margin-bottom: 48px !important;
+      }
+
+      .cover-authors-box {
+        max-width: 1000px !important;
+        padding-top: 28px !important;
+      }
+
+      .authors-col p.names {
+        font-size: 18px !important;
+        line-height: 1.6 !important;
+      }
+
+      /* Slides de Conteúdo (Duas Colunas) */
+      .slide-content-split {
+        width: 100% !important;
+        height: 100% !important;
+        display: grid !important;
+        grid-template-columns: 46% 54% !important;
+        gap: 50px !important;
+        align-items: center !important;
+      }
+
+      .slide-text-col {
+        max-height: none !important;
+        overflow: visible !important;
+        padding-right: 0 !important;
+      }
+
+      .category-kicker {
+        font-size: 15px !important;
+        margin-bottom: 12px !important;
+      }
+
+      .slide-headline {
+        font-size: 52px !important;
+        line-height: 1.15 !important;
+        margin-bottom: 18px !important;
+      }
+
+      .idea-badge {
+        font-size: 22px !important;
+        padding: 10px 16px !important;
+        margin-bottom: 28px !important;
+      }
+
+      .bullet-list {
+        gap: 22px !important;
+      }
+
+      .bullet-item {
+        font-size: 29px !important;
+        line-height: 1.35 !important;
+        gap: 16px !important;
+      }
+
+      .bullet-bullet {
+        min-width: 11px !important;
+        height: 11px !important;
+        margin-top: 11px !important;
+      }
+
+      .image-card {
+        height: 780px !important;
+        max-height: 780px !important;
+        padding: 14px !important;
+        box-shadow: none !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      }
+
+      .source-caption {
+        font-size: 16.5px !important;
+        margin-top: 10px !important;
+      }
+
+      /* Slide 10: Conclusão sem cards, lista vertical */
+      .slide-conclusion {
+        padding: 80px 100px !important;
+      }
+
+      .conclusion-headline {
+        font-size: 62px !important;
+        margin-bottom: 18px !important;
+        line-height: 1.1 !important;
+      }
+
+      .conclusion-badge {
+        font-size: 24px !important;
+        padding: 8px 16px !important;
+        margin-bottom: 32px !important;
+      }
+
+      .conclusion-list {
+        gap: 26px !important;
+      }
+
+      .conclusion-item {
+        font-size: 32px !important;
+        line-height: 1.35 !important;
+        gap: 18px !important;
+      }
+
+      .conclusion-bullet {
+        min-width: 12px !important;
+        height: 12px !important;
+        margin-top: 13px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="deck-container">
+    <!-- Header Institucional com Controles -->
+    <header class="deck-header">
+      <div class="brand-tag">
+        <span>UFMA &bull; CCET &bull; Departamento de Informática</span>
+        <span class="badge">Arquitetura de Computadores</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="header-btn" id="prev-btn" title="Slide Anterior (Seta Esquerda)">
+          &larr; Anterior
+        </button>
+        <div class="slide-counter" id="slide-counter">01 / 10</div>
+        <button class="header-btn" id="next-btn" title="Próximo Slide (Seta Direita / Espaço)">
+          Próximo &rarr;
+        </button>
+        <button class="header-btn" id="fullscreen-btn" title="Alternar Tela Cheia (F)">
+          Tela Cheia (F)
+        </button>
+        <button class="header-btn highlight" id="print-btn" onclick="window.print()" title="Salvar Apresentação em PDF (Ctrl+P)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Exportar PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- Área de Visualização dos Slides -->
+    <main class="slides-viewport">
+
+      <!-- SLIDE 1: Capa -->
+      <section class="slide slide-cover active" data-slide="1">
+        <div class="cover-meta">Apresentação de Resultados de Execução</div>
+        <h1 class="cover-title">
+          Simulador de Memória <span class="highlight">RAM / ROM</span>
+        </h1>
+        <p class="cover-subtitle">
+          Demonstração prática de barramentos, operações fundamentais e arquitetura de memória em Linguagem C.
+        </p>
+        <div class="cover-authors-box">
+          <div class="authors-col">
+            <p class="label">Equipe de Desenvolvimento</p>
+            <p class="names">
+              Caio Ferreira Sousa &bull; Danilo Nava Soares Lima &bull; Raynara Ribeiro Alves<br>
+              Rhuã Yuri Nascimento Sardinha &bull; Yuri Aguiar Gonçalves
+            </p>
+          </div>
+          <div class="location-col">
+            <p class="institution">Universidade Federal do Maranhão</p>
+            <p class="year">São Luís &bull; 2026</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: Arquitetura Geral -->
+      <section class="slide" data-slide="2">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Estrutura do Sistema</div>
+            <h2 class="slide-headline">Arquitetura Integrada e Subsistema</h2>
+            <div class="idea-badge">Modelo Von Neumann com 4 KB de espaço endereçável</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Espaço Total:</strong> 4096 Bytes (12 bits)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Segmentação:</strong> 256 B de ROM e 3840 B de RAM</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Registradores:</strong> MAR (Endereço) e MBR (Dado)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Controle:</strong> Sinais <code>MEMR</code>, <code>MEMW</code> e MPU</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/diagrama.png', 'Diagrama Geral da Arquitetura e do Subsistema de Memória')">
+              <img src="imagens_slide/diagrama.png" alt="Diagrama Geral da Arquitetura do Sistema">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: Validação de Entrada e Multi-base -->
+      <section class="slide" data-slide="3">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Tratamento de Dados</div>
+            <h2 class="slide-headline">Analisador Léxico Multi-base</h2>
+            <div class="idea-badge">Flexibilidade para manipulação direta de diferentes bases</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Bases:</strong> Decimal, Hexadecimal e Binário</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Prefixos:</strong> Suporte a <code>0x...</code>, <code>...h</code> e <code>0b...</code></span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Limites:</strong> MAR (12 bits) e MBR (8 bits)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Resiliência:</strong> Prevenção de falhas de buffer</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/interpretador_base_numerica.png', 'Fluxograma do Analisador Léxico de Bases Numéricas')">
+              <img src="imagens_slide/interpretador_base_numerica.png" alt="Fluxograma do Analisador Léxico Multi-base">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: Operação de Escrita (MEMW) e Proteção MPU -->
+      <section class="slide" data-slide="4">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Operação de Escrita</div>
+            <h2 class="slide-headline">Ciclo MEMW e Proteção de ROM</h2>
+            <div class="idea-badge">Simulação física do ciclo de escrita com proteção de hardware</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Barramento:</strong> MAR (Endereço) &larr; MBR (Dado)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Proteção MPU:</strong> Bloqueio de escrita na ROM</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Sinal de Falha:</strong> Emissão de <code>BUS_PROT_FAULT</code></span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Acesso Físico:</strong> Ponteiro direto e sobrescrita</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/escrita.png', 'Fluxograma da Operação de Escrita em Memória (MEMW) e MPU')">
+              <img src="imagens_slide/escrita.png" alt="Fluxograma da Operação de Escrita em Memória">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Operação de Leitura (MEMR) -->
+      <section class="slide" data-slide="5">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Operação de Leitura</div>
+            <h2 class="slide-headline">Ciclo MEMR e Trânsito de Dados</h2>
+            <div class="idea-badge">Recuperação de dados e consulta imediata do estado da célula</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Endereçamento:</strong> MAR posiciona a célula</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Captura Síncrona:</strong> Dado transferido ao MBR</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Linha de Controle:</strong> Sinal <code>BUS_READ</code> ativo</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Decodificação:</strong> Hex, Dec, Bin e caractere ASCII</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/leitura.png', 'Fluxograma da Operação de Leitura de Memória (MEMR)')">
+              <img src="imagens_slide/leitura.png" alt="Fluxograma da Operação de Leitura de Memória">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Gravação de ROM e Bootloader -->
+      <section class="slide" data-slide="6">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Inicialização e Firmware</div>
+            <h2 class="slide-headline">Gravação de ROM e Bootloader</h2>
+            <div class="idea-badge">Simulação de carga de fábrica com proteção pós-escrita</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Desbloqueio:</strong> Desativação temporária da MPU</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Firmware BIOS:</strong> Assinatura de inicialização</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Vetor de Reset:</strong> Salto para a RAM (<code>0x100</code>)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Segurança:</strong> Travamento automático pós-carga</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/gravacao_rom.png', 'Fluxograma da Carga de Firmware e Bootloader na ROM')">
+              <img src="imagens_slide/gravacao_rom.png" alt="Fluxograma de Gravação de ROM e Bootloader">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Reset e Higienização de Memória -->
+      <section class="slide" data-slide="7">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Gestão de Estado</div>
+            <h2 class="slide-headline">Higienização e Reset do Sistema</h2>
+            <div class="idea-badge">Diferenciação clara entre dados voláteis e firmware permanente</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Limpeza da RAM:</strong> Zera dados e preserva BIOS</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Reset a Frio:</strong> Zera os 4096 bytes do sistema</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Hardware:</strong> MAR e MBR zerados para <code>BUS_IDLE</code></span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Telemetria:</strong> Reinicialização das métricas</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/Reset.png', 'Fluxograma de Limpeza de RAM e Reset Total do Sistema')">
+              <img src="imagens_slide/Reset.png" alt="Fluxograma de Reset e Limpeza da Memória">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: Proposta de Melhoria - Segmentação por Tipologia -->
+      <section class="slide" data-slide="8">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Proposta de Melhoria</div>
+            <h2 class="slide-headline">Segmentação da RAM por Tipologia</h2>
+            <div class="idea-badge">Evolução planejada: Particionamento dos 3840 B de RAM em espaços dedicados</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>TEXT (0x100–0x3FF):</strong> Código e instruções</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>DATA (0x400–0x7FF):</strong> Variáveis globais e strings</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>HEAP (0x800–0xBFF):</strong> Alocação dinâmica (*Bottom-Up*)</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>STACK (0xC00–0xFFF):</strong> Pilha de execução (*Top-Down*)</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="memory-map-card">
+              <div class="map-header">
+                <span>Layout de Memória Segmentado</span>
+                <span class="badge-total">4096 Bytes</span>
+              </div>
+              <div class="memory-stack-container">
+                <div class="mem-block stack-block">
+                  <span class="mem-range">0xC00 - 0xFFF</span>
+                  <span class="mem-name">STACK (Pilha de Execução)</span>
+                  <span class="mem-size">1024 B</span>
+                </div>
+                <div class="mem-grow-arrow">&darr; Crescimento da Pilha (Top-Down)</div>
+                <div class="mem-block heap-block">
+                  <span class="mem-range">0x800 - 0xBFF</span>
+                  <span class="mem-name">HEAP (Dados Dinâmicos)</span>
+                  <span class="mem-size">1024 B</span>
+                </div>
+                <div class="mem-grow-arrow">&uarr; Crescimento do Heap (Bottom-Up)</div>
+                <div class="mem-block data-block">
+                  <span class="mem-range">0x400 - 0x7FF</span>
+                  <span class="mem-name">DATA (Variáveis e Strings)</span>
+                  <span class="mem-size">1024 B</span>
+                </div>
+                <div class="mem-block text-block">
+                  <span class="mem-range">0x100 - 0x3FF</span>
+                  <span class="mem-name">TEXT (Código / Instruções)</span>
+                  <span class="mem-size">768 B</span>
+                </div>
+                <div class="mem-block rom-block">
+                  <span class="mem-range">0x000 - 0x0FF</span>
+                  <span class="mem-name">ROM (BIOS / Bootloader)</span>
+                  <span class="mem-size">256 B</span>
+                </div>
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria (Planejamento Arquitetural).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Andamento e Status da Fase Final (Gantt) -->
+      <section class="slide" data-slide="9">
+        <div class="slide-content-split">
+          <div class="slide-text-col">
+            <div class="category-kicker">Cronograma de Execução</div>
+            <h2 class="slide-headline">Andamento da Fase Final</h2>
+            <div class="idea-badge">Situação em 18/11/2026: 9 tarefas concluídas e reta final de validação</div>
+            <ul class="bullet-list">
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Marco 18/11:</strong> 9 tarefas centrais concluídas</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Entregas Atuais:</strong> Fluxogramas e apresentação</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Reta Final:</strong> Testes de fronteira e emissão do TEP</span>
+              </li>
+              <li class="bullet-item">
+                <span class="bullet-bullet"></span>
+                <span><strong>Backlog:</strong> Refatoração do mapa de memória</span>
+              </li>
+            </ul>
+          </div>
+          <div class="slide-visual-col">
+            <div class="image-card" onclick="openModal('imagens_slide/gantt_fase_final_foco.png', 'Gráfico de Gantt: Cronograma da Fase Final em 18/11/2026')">
+              <img src="imagens_slide/gantt_fase_final_foco.png" alt="Gráfico de Gantt com Foco na Fase Final">
+              <div class="zoom-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Ampliar
+              </div>
+            </div>
+            <p class="source-caption">Fonte: Autoria própria (Exportado do ClickUp em 18/11/2026).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: Conclusões e Entregas Consolidadas -->
+      <section class="slide slide-conclusion" data-slide="10">
+        <div class="category-kicker">Síntese dos Resultados</div>
+        <h2 class="slide-headline conclusion-headline">Conclusões e Entregas Consolidadas</h2>
+        <div class="idea-badge conclusion-badge">Superação do escopo inicial com implementação de arquitetura realista</div>
+
+        <ul class="conclusion-list">
+          <li class="conclusion-item">
+            <span class="conclusion-bullet"></span>
+            <div><strong>Fidelidade Arquitetural:</strong> 4 KB com MAR/MBR e MPU em ROM</div>
+          </li>
+          <li class="conclusion-item">
+            <span class="conclusion-bullet"></span>
+            <div><strong>Robustez Operacional:</strong> Multi-base e proteção ativa de memória</div>
+          </li>
+          <li class="conclusion-item">
+            <span class="conclusion-bullet"></span>
+            <div><strong>Visibilidade Plena:</strong> Telemetria em tempo real e Hex Dump com ASCII</div>
+          </li>
+          <li class="conclusion-item">
+            <span class="conclusion-bullet"></span>
+            <div><strong>Objetivo Alcançado:</strong> Prática real de Arquitetura de Computadores</div>
+          </li>
+        </ul>
+      </section>
+
+    </main>
+
+    <!-- Barra Inferior com Atalhos e Linha de Progresso -->
+    <footer class="deck-footer">
+      <div class="progress-bar-line" id="progress-bar"></div>
+      <div class="footer-hints">
+        <span>Navegação: <span class="key-badge">&larr;</span> <span class="key-badge">&rarr;</span> ou <span class="key-badge">Espaço</span></span>
+        <span>Tela cheia: <span class="key-badge">F</span></span>
+        <span>Zoom na Imagem: <span class="key-badge">Clique</span></span>
+      </div>
+      <div class="footer-status" id="footer-topic">Arquitetura Integrada e Subsistema</div>
+    </footer>
+  </div>
+
+  <!-- Modal Lightbox para Ampliação de Diagramas -->
+  <div id="image-modal" onclick="closeModal()">
+    <div class="modal-close-btn" title="Fechar (Esc)">&times;</div>
+    <img id="modal-img" src="" alt="Diagrama ampliado" onclick="event.stopPropagation()">
+    <div class="modal-caption" id="modal-caption"></div>
+  </div>
+
+  <script>
+    /* ========================================================
+       GERENCIAMENTO DE SLIDES E NAVEGAÇÃO
+       ======================================================== */
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    let currentSlide = 1;
+
+    const slideTitles = [
+      "Apresentação de Resultados de Execução",
+      "Arquitetura Integrada e Subsistema",
+      "Analisador Léxico Multi-base",
+      "Ciclo MEMW e Proteção de ROM",
+      "Ciclo MEMR e Trânsito de Dados",
+      "Gravação de ROM e Bootloader",
+      "Higienização e Reset do Sistema",
+      "Segmentação da RAM por Tipologia",
+      "Andamento e Status da Fase Final",
+      "Conclusões e Entregas Consolidadas"
+    ];
+
+    const counterEl = document.getElementById('slide-counter');
+    const progressBar = document.getElementById('progress-bar');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const footerTopic = document.getElementById('footer-topic');
+
+    // Lê slide inicial a partir da hash (#1, #2, etc.)
+    if (window.location.hash) {
+      const hashNum = parseInt(window.location.hash.replace('#', ''), 10);
+      if (!isNaN(hashNum) && hashNum >= 1 && hashNum <= totalSlides) {
+        currentSlide = hashNum;
+      }
+    }
+
+    function updateDeck(pushHash = true) {
+      slides.forEach((slide) => {
+        const slideIndex = parseInt(slide.getAttribute('data-slide'), 10);
+        if (slideIndex === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // Atualiza contador
+      counterEl.textContent = `${String(currentSlide).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+
+      // Atualiza tópico atual no rodapé
+      if (footerTopic) {
+        footerTopic.textContent = slideTitles[currentSlide - 1] || "";
+      }
+
+      // Atualiza barra de progresso
+      const progressPercent = (currentSlide / totalSlides) * 100;
+      progressBar.style.width = `${progressPercent}%`;
+
+      // Atualiza botões
+      prevBtn.style.opacity = currentSlide === 1 ? '0.4' : '1';
+      prevBtn.style.pointerEvents = currentSlide === 1 ? 'none' : 'auto';
+      nextBtn.style.opacity = currentSlide === totalSlides ? '0.4' : '1';
+      nextBtn.style.pointerEvents = currentSlide === totalSlides ? 'none' : 'auto';
+
+      // Sincroniza hash na URL sem poluir histórico
+      if (pushHash && history.replaceState) {
+        history.replaceState(null, null, `#${currentSlide}`);
+      }
+    }
+
+    window.addEventListener('hashchange', () => {
+      const hashNum = parseInt(window.location.hash.replace('#', ''), 10);
+      if (!isNaN(hashNum) && hashNum >= 1 && hashNum <= totalSlides && hashNum !== currentSlide) {
+        currentSlide = hashNum;
+        updateDeck(false);
+      }
+    });
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateDeck();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateDeck();
+      }
+    }
+
+    // Teclado
+    window.addEventListener('keydown', (e) => {
+      // Se modal estiver aberto, Esc fecha o modal
+      if (document.getElementById('image-modal').classList.contains('open')) {
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        currentSlide = 1;
+        updateDeck();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        currentSlide = totalSlides;
+        updateDeck();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullScreen();
+      }
+    });
+
+    prevBtn.addEventListener('click', prevSlide);
+    nextBtn.addEventListener('click', nextSlide);
+    fullscreenBtn.addEventListener('click', toggleFullScreen);
+
+    // Suporte a gestos touch/swipe
+    let touchStartX = 0;
+    let touchEndX = 0;
+    window.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+    window.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50) nextSlide();
+      if (touchEndX - touchStartX > 50) prevSlide();
+    });
+
+    // Alternar tela cheia
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    /* ========================================================
+       MODAL LIGHTBOX PARA DIAGRAMAS
+       ======================================================== */
+    const modal = document.getElementById('image-modal');
+    const modalImg = document.getElementById('modal-img');
+    const modalCaption = document.getElementById('modal-caption');
+
+    function openModal(src, caption) {
+      modalImg.src = src;
+      modalCaption.textContent = `${caption} — (Pressione Esc ou clique fora para fechar)`;
+      modal.classList.add('open');
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modalImg.src = '';
+    }
+
+    // Inicializa estado
+    updateDeck();
+  </script>
+</body>
+</html>
