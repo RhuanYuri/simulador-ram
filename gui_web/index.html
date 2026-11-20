@@ -213,14 +213,20 @@
         <!-- Heatmap Visual da Memória 4 KB -->
         <div class="matrix-card">
           <div class="matrix-header">
-            <h3>Matriz Física de 4096 Células (4 KB)</h3>
-            <div class="matrix-legend">
-              <span class="leg-item"><span class="dot dot-rom"></span> ROM</span>
-              <span class="leg-item"><span class="dot dot-text"></span> TEXT</span>
-              <span class="leg-item"><span class="dot dot-data"></span> DATA</span>
-              <span class="leg-item"><span class="dot dot-heap"></span> HEAP</span>
-              <span class="leg-item"><span class="dot dot-stack"></span> STACK</span>
+            <div>
+              <h3>Matriz Física de 4096 Células (4 KB)</h3>
+              <div class="matrix-legend">
+                <span class="leg-item"><span class="dot dot-rom"></span> ROM</span>
+                <span class="leg-item"><span class="dot dot-text"></span> TEXT</span>
+                <span class="leg-item"><span class="dot dot-data"></span> DATA</span>
+                <span class="leg-item"><span class="dot dot-heap"></span> HEAP</span>
+                <span class="leg-item"><span class="dot dot-stack"></span> STACK</span>
+              </div>
             </div>
+            <button class="btn-expand-ram" onclick="abrirModalMapaRAM()" title="Abrir Mapa em Tela Cheia para Demonstração">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              Expandir Mapa da RAM
+            </button>
           </div>
           <canvas id="memory-canvas" width="400" height="120"></canvas>
         </div>
@@ -240,6 +246,116 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- MODAL EXPANDIDO: MAPA DA RAM PARA DEMONSTRAÇÃO E BANCAS -->
+  <div id="modal-ram-expandido" class="modal-ram-overlay">
+    <div class="modal-ram-container">
+      <div class="modal-ram-header">
+        <div class="modal-ram-title">
+          <span class="badge-tag">Modo Demonstração de Bancas</span>
+          <h2>Visualizador Expandido da Memória Física (4096 Bytes)</h2>
+        </div>
+
+        <!-- Filtros Rápidos de Segmentos -->
+        <div class="modal-ram-filters">
+          <button class="filter-btn active" data-filter="all" onclick="filtrarSegmentoModal('all')">Todos (4096 B)</button>
+          <button class="filter-btn f-rom" data-filter="rom" onclick="filtrarSegmentoModal('rom')">ROM (0x000–0x0FF)</button>
+          <button class="filter-btn f-text" data-filter="text" onclick="filtrarSegmentoModal('text')">TEXT (0x100–0x3FF)</button>
+          <button class="filter-btn f-data" data-filter="data" onclick="filtrarSegmentoModal('data')">DATA (0x400–0x7FF)</button>
+          <button class="filter-btn f-heap" data-filter="heap" onclick="filtrarSegmentoModal('heap')">HEAP (0x800–0xBFF)</button>
+          <button class="filter-btn f-stack" data-filter="stack" onclick="filtrarSegmentoModal('stack')">STACK (0xC00–0xFFF)</button>
+        </div>
+
+        <button class="modal-close-btn" onclick="fecharModalMapaRAM()" title="Fechar (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-ram-body">
+        <!-- Lado Esquerdo do Modal: Canvas Gigante em Alta Definição -->
+        <div class="modal-canvas-pane">
+          <div class="canvas-controls-bar">
+            <span>Grid Físico: 64 colunas &times; 64 linhas (Passe o mouse ou clique em qualquer célula para inspecionar)</span>
+            <div class="mini-legend">
+              <span class="color-rom">■ ROM</span>
+              <span class="color-text">■ TEXT</span>
+              <span class="color-data">■ DATA</span>
+              <span class="color-heap">■ HEAP</span>
+              <span class="color-stack">■ STACK</span>
+            </div>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="modal-ram-canvas" width="600" height="600"></canvas>
+          </div>
+        </div>
+
+        <!-- Lado Direito do Modal: Inspetor Detalhado da Célula e Ações Rápidas -->
+        <div class="modal-inspector-pane">
+          <!-- Card de Célula Selecionada -->
+          <div class="inspector-card">
+            <h3>Inspetor de Célula de Memória</h3>
+            <div class="inspector-field">
+              <span class="f-label">Endereço Físico:</span>
+              <span class="f-val addr" id="insp-addr">0x0800 (Decimal 2048)</span>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Segmento Lógico:</span>
+              <span class="f-val" id="insp-seg">HEAP (Alocação Dinâmica)</span>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Dado Armazenado:</span>
+              <div class="byte-decomposed">
+                <div class="b-box"><span class="b-sub">HEX</span><span id="insp-hex" class="b-txt">0x01</span></div>
+                <div class="b-box"><span class="b-sub">DEC</span><span id="insp-dec" class="b-txt">1</span></div>
+                <div class="b-box"><span class="b-sub">BIN</span><span id="insp-bin" class="b-txt">00000001</span></div>
+                <div class="b-box"><span class="b-sub">ASCII</span><span id="insp-ascii" class="b-txt">'·'</span></div>
+              </div>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Significado Arquitetural:</span>
+              <span class="f-desc" id="insp-desc">ID do primeiro aluno cadastrado na turma</span>
+            </div>
+          </div>
+
+          <!-- Ações de Demonstração ao Vivo dentro do Modal -->
+          <div class="demo-actions-card">
+            <h3>Disparadores em Tempo Real</h3>
+            <p>Execute operações ao vivo para ver o mapa da RAM reagir na hora:</p>
+            <div class="demo-btns-grid">
+              <button class="btn-demo btn-demo-student" onclick="inserirAlunoDemo()">
+                + Inserir Aluno Demo no HEAP
+              </button>
+              <button class="btn-demo btn-demo-calc" onclick="calcularMedias()">
+                ⚡ Processar Médias na STACK
+              </button>
+              <button class="btn-demo btn-demo-hack" onclick="tentarHackearRom()">
+                🚨 Simular Invasão na ROM (MPU)
+              </button>
+              <button class="btn-demo btn-demo-reset" onclick="executarReset()">
+                🔄 Resetar Memória
+              </button>
+            </div>
+          </div>
+
+          <!-- Hex View Contínua -->
+          <div class="continuous-hex-card">
+            <div class="hex-range-selector">
+              <h3>Visualizador Hexadecimal</h3>
+              <select id="select-hex-page" onchange="mudarPaginaHexModal(this.value)">
+                <option value="0x000">0x000–0x0FF (ROM / BIOS)</option>
+                <option value="0x100">0x100–0x3FF (TEXT / Instruções)</option>
+                <option value="0x400">0x400–0x7FF (DATA / Constantes)</option>
+                <option value="0x800" selected>0x800–0xBFF (HEAP / Alunos)</option>
+                <option value="0xC00">0xC00–0xFFF (STACK / Pilha)</option>
+              </select>
+            </div>
+            <div class="hex-continuous-view" id="modal-hex-view">
+              <!-- Preenchido via Javascript -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

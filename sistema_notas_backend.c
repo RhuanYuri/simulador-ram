@@ -289,6 +289,25 @@ int trancar_aluno_simulado(uint8_t id_procurado) {
  * MICRO-SERVIDOR HTTP REST EM C PURO
  * ============================================================================== */
 
+void gerar_json_memoria_completa(char* buffer, size_t max_len) {
+    static char hex_str[TAM_MEMORIA * 2 + 1];
+    static char occ_str[TAM_MEMORIA + 1];
+    static const char hex_chars[] = "0123456789ABCDEF";
+
+    for (int i = 0; i < TAM_MEMORIA; i++) {
+        uint8_t b = g_mem.dados[i];
+        hex_str[i * 2 + 0] = hex_chars[(b >> 4) & 0x0F];
+        hex_str[i * 2 + 1] = hex_chars[b & 0x0F];
+        occ_str[i] = g_mem.ocupado[i] ? '1' : '0';
+    }
+    hex_str[TAM_MEMORIA * 2] = '\0';
+    occ_str[TAM_MEMORIA] = '\0';
+
+    snprintf(buffer, max_len,
+             "{\"mar\":%d,\"mbr\":%d,\"heap_topo\":%d,\"stack_sp\":%d,\"hex\":\"%s\",\"ocupado\":\"%s\"}",
+             g_mem.mar, g_mem.mbr, g_mem.heap_pointer, g_mem.stack_pointer, hex_str, occ_str);
+}
+
 void gerar_json_estado(char* buffer, size_t max_len) {
     int usados_rom = 0, usados_text = 0, usados_data = 0, usados_heap = 0, usados_stack = 0;
     for (int i = 0; i < TAM_ROM; i++) if (g_mem.ocupado[i]) usados_rom++;
@@ -457,6 +476,11 @@ void* tratar_requisicao(void* arg) {
         static char json_resp[16384];
         gerar_json_estado(json_resp, sizeof(json_resp));
         responder_http(client_sock, "application/json", json_resp, 200);
+    }
+    else if (strcmp(uri, "/api/memoria_completa") == 0) {
+        static char json_mem[20480];
+        gerar_json_memoria_completa(json_mem, sizeof(json_mem));
+        responder_http(client_sock, "application/json", json_mem, 200);
     }
     else if (strcmp(uri, "/api/aluno") == 0 && strcmp(metodo, "POST") == 0) {
         char* corpo = strstr(buffer, "\r\n\r\n");

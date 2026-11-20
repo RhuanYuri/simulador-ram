@@ -22,6 +22,7 @@ async function atualizarDados() {
     const data = await res.json();
     estadoAtual = data;
     renderizarInterface(data);
+    if (modalAberto) carregarMemoriaCompleta();
     marcarStatusBackend(true);
   } catch (err) {
     marcarStatusBackend(false);
@@ -274,3 +275,289 @@ async function executarReset() {
     alert('Erro ao resetar hardware!');
   }
 }
+
+// ==============================================================================
+// MODAL EXPANDIDO: MAPA DA RAM PARA DEMONSTRAÇÃO
+// ==============================================================================
+
+let modalAberto = false;
+let memoriaCompletaCache = null;
+let filtroSegmentoAtivo = 'all';
+let celulaSelecionada = 0x0800;
+let paginaHexAtiva = 0x800;
+
+function abrirModalMapaRAM() {
+  const modal = document.getElementById('modal-ram-expandido');
+  if (!modal) return;
+  modal.classList.add('open');
+  modalAberto = true;
+  carregarMemoriaCompleta();
+  configurarEventosCanvasModal();
+}
+
+function fecharModalMapaRAM() {
+  const modal = document.getElementById('modal-ram-expandido');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modalAberto = false;
+}
+
+// Carrega os 4096 bytes brutos do back-end em C
+async function carregarMemoriaCompleta() {
+  try {
+    const res = await fetch(`${API_BASE}/api/memoria_completa`);
+    if (!res.ok) return;
+    const data = await res.json();
+    memoriaCompletaCache = data;
+    desenharCanvasModal();
+    renderizarHexContinuoModal();
+    inspecionarCelula(celulaSelecionada);
+  } catch (err) {
+    console.error('Erro ao carregar memoria completa:', err);
+  }
+}
+
+function filtrarSegmentoModal(seg) {
+  filtroSegmentoAtivo = seg;
+  document.querySelectorAll('.modal-ram-filters .filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === seg);
+  });
+  desenharCanvasModal();
+}
+
+function mudarPaginaHexModal(val) {
+  paginaHexAtiva = parseInt(val, 16);
+  renderizarHexContinuoModal();
+}
+
+// Configura eventos de mouse sobre o canvas de 600x600 do modal
+function configurarEventosCanvasModal() {
+  const canvas = document.getElementById('modal-ram-canvas');
+  if (!canvas || canvas.dataset.configured) return;
+  canvas.dataset.configured = 'true';
+
+  function tratarHover(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mouseX = (evt.clientX - rect.left) * scaleX;
+    const mouseY = (evt.clientY - rect.top) * scaleY;
+
+    const cols = 64;
+    const rows = 64;
+    const cellW = canvas.width / cols;
+    const cellH = canvas.height / rows;
+
+    const col = Math.floor(mouseX / cellW);
+    const row = Math.floor(mouseY / cellH);
+
+    if (col >= 0 && col < cols && row >= 0 && row < rows) {
+      const idx = row * cols + col;
+      if (idx >= 0 && idx < 4096) {
+        celulaSelecionada = idx;
+        inspecionarCelula(idx);
+        desenharCanvasModal();
+      }
+    }
+  }
+
+  canvas.addEventListener('mousemove', tratarHover);
+  canvas.addEventListener('click', tratarHover);
+}
+
+// Inspeciona os detalhes de qualquer byte de 0 a 4095
+function inspecionarCelula(addr) {
+  if (!memoriaCompletaCache) return;
+
+  const bHex = memoriaCompletaCache.hex.substr(addr * 2, 2);
+  const bVal = parseInt(bHex, 16);
+  const bBin = bVal.toString(2).padStart(8, '0');
+  const bChar = (bVal >= 32 && bVal <= 126) ? String.fromCharCode(bVal) : '·';
+  const isOcupado = (memoriaCompletaCache.ocupado.charAt(addr) === '1');
+
+  document.getElementById('insp-addr').textContent = `0x${addr.toString(16).toUpperCase().padStart(3, '0')} (Decimal ${addr})`;
+  document.getElementById('insp-hex').textContent = `0x${bHex}`;
+  document.getElementById('insp-dec').textContent = bVal;
+  document.getElementById('insp-bin').textContent = bBin;
+  document.getElementById('insp-ascii').textContent = `'${bChar}'`;
+
+  // Identifica Região e Significado
+  let seg = '';
+  let desc = '';
+
+  if (addr < 256) {
+    seg = 'ROM (BIOS e Regras Imutáveis)';
+    if (addr === 0x0070) desc = 'Média Mínima da UFMA (7.0) - Protegida por Hardware!';
+    else if (addr === 0x0071) desc = 'Frequência Mínima (75%)';
+    else if (addr < 64) desc = 'Assinatura Digital de Inicialização do Sistema';
+    else desc = 'Célula de Firmware da Instituição';
+  } else if (addr < 0x400) {
+    seg = 'TEXT (Código Executável / Opcodes)';
+    desc = 'Instrução compilada em Assembly das rotinas de cálculo acadêmico';
+  } else if (addr < 0x800) {
+    seg = 'DATA (Constantes Globais e Cabeçalhos)';
+    desc = 'Cadeia de texto ASCII fixa (Nome da disciplina / Cabeçalho)';
+  } else if (addr < 0xC00) {
+    seg = 'HEAP (Alocação Dinâmica de Alunos)';
+    const offsetHeap = addr - 0x800;
+    const alunoNum = Math.floor(offsetHeap / 24) + 1;
+    const campoIdx = offsetHeap % 24;
+
+    if (!isOcupado) {
+      desc = `Espaço livre no HEAP disponível para novos alunos`;
+    } else if (campoIdx === 0) {
+      desc = `Byte de Matrícula/ID do Aluno #${alunoNum}`;
+    } else if (campoIdx >= 1 && campoIdx <= 16) {
+      desc = `Caractere ASCII do Nome do Aluno #${alunoNum} ('${bChar}')`;
+    } else if (campoIdx === 17) {
+      desc = `Nota da Prova 1 (P1 = ${(bVal / 10).toFixed(1)}) do Aluno #${alunoNum}`;
+    } else if (campoIdx === 18) {
+      desc = `Nota da Prova 2 (P2 = ${(bVal / 10).toFixed(1)}) do Aluno #${alunoNum}`;
+    } else if (campoIdx === 19) {
+      desc = `Média Final Calculada (${(bVal / 10).toFixed(1)}) do Aluno #${alunoNum}`;
+    } else if (campoIdx === 20) {
+      desc = `Frequência Acadêmica (${bVal}%) do Aluno #${alunoNum}`;
+    } else if (campoIdx === 21) {
+      desc = `Situação de Aprovação ('${bChar}' = ${bChar === 'A' ? 'Aprovado' : bChar === 'R' ? 'Reprovado' : 'Final'})`;
+    } else {
+      desc = `Byte de alinhamento estrutural do Aluno #${alunoNum}`;
+    }
+  } else {
+    seg = 'STACK (Pilha de Execução de Funções)';
+    if (addr >= memoriaCompletaCache.stack_sp) {
+      desc = 'Quadro de ativação ativo empilhado na execução do cálculo';
+    } else {
+      desc = 'Espaço livre reservado para crescimento da pilha (Top-Down)';
+    }
+  }
+
+  document.getElementById('insp-seg').textContent = seg;
+  document.getElementById('insp-desc').textContent = desc;
+}
+
+// Desenha o Canvas de 600x600 do Modal com nitidez total
+function desenharCanvasModal() {
+  const canvas = document.getElementById('modal-ram-canvas');
+  if (!canvas || !memoriaCompletaCache) return;
+  const ctx = canvas.getContext('2d');
+
+  const cols = 64;
+  const rows = 64;
+  const cellW = canvas.width / cols;
+  const cellH = canvas.height / rows;
+
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < 4096; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = col * cellW;
+    const y = row * cellH;
+
+    let corBase = '#334155';
+    let pertenceFiltro = true;
+
+    if (i < 256) {
+      corBase = '#ef4444'; // ROM
+      if (filtroSegmentoAtivo !== 'all' && filtroSegmentoAtivo !== 'rom') pertenceFiltro = false;
+    } else if (i < 0x400) {
+      corBase = '#38bdf8'; // TEXT
+      if (filtroSegmentoAtivo !== 'all' && filtroSegmentoAtivo !== 'text') pertenceFiltro = false;
+    } else if (i < 0x800) {
+      corBase = '#10b981'; // DATA
+      if (filtroSegmentoAtivo !== 'all' && filtroSegmentoAtivo !== 'data') pertenceFiltro = false;
+    } else if (i < 0xC00) {
+      // HEAP
+      const isOcupado = (i < memoriaCompletaCache.heap_topo);
+      corBase = isOcupado ? '#f59e0b' : '#3d2605';
+      if (filtroSegmentoAtivo !== 'all' && filtroSegmentoAtivo !== 'heap') pertenceFiltro = false;
+    } else {
+      // STACK
+      const isOcupado = (i >= memoriaCompletaCache.stack_sp);
+      corBase = isOcupado ? '#a855f7' : '#221133';
+      if (filtroSegmentoAtivo !== 'all' && filtroSegmentoAtivo !== 'stack') pertenceFiltro = false;
+    }
+
+    ctx.fillStyle = pertenceFiltro ? corBase : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(x, y, cellW - 0.5, cellH - 0.5);
+
+    // Célula do MAR pulsante
+    if (i === memoriaCompletaCache.mar) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(x - 1, y - 1, cellW + 2, cellH + 2);
+    }
+
+    // Célula selecionada pelo mouse
+    if (i === celulaSelecionada) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x - 2, y - 2, cellW + 4, cellH + 4);
+    }
+  }
+}
+
+// Renderiza a listagem contínua em Hex e ASCII no modal
+function renderizarHexContinuoModal() {
+  const container = document.getElementById('modal-hex-view');
+  if (!container || !memoriaCompletaCache) return;
+
+  const inicio = paginaHexAtiva;
+  const fim = Math.min(4096, inicio + 256); // 256 bytes por visualização
+
+  let html = '';
+  for (let r = inicio; r < fim; r += 16) {
+    const offsetHex = '0x' + r.toString(16).toUpperCase().padStart(3, '0');
+    let bytesHex = '';
+    let charsAscii = '';
+
+    for (let c = 0; c < 16 && (r + c) < 4096; c++) {
+      const addr = r + c;
+      const bHex = memoriaCompletaCache.hex.substr(addr * 2, 2);
+      const bVal = parseInt(bHex, 16);
+      const bChar = (bVal >= 32 && bVal <= 126) ? String.fromCharCode(bVal) : '.';
+
+      bytesHex += bHex + ' ';
+      charsAscii += bChar;
+    }
+
+    html += `
+      <div class="hex-line">
+        <span class="hex-offset">${offsetHex}:</span>
+        <span class="hex-bytes">${bytesHex}</span>
+        <span class="hex-ascii">|${charsAscii}|</span>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+// Disparador de Aluno Demo ao vivo
+let demoSeq = 100;
+async function inserirAlunoDemo() {
+  const nomes = ["Beatriz Costa", "Lucas Mendes", "Mariana Silva", "Gabriel Santos", "Fernanda Lima"];
+  const nome = `${nomes[demoSeq % nomes.length]} (${demoSeq++})`;
+  const p1 = 60 + Math.floor(Math.random() * 40);
+  const p2 = 50 + Math.floor(Math.random() * 50);
+  const freq = 75 + Math.floor(Math.random() * 25);
+
+  try {
+    await fetch(`${API_BASE}/api/aluno`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, p1, p2, freq })
+    });
+    atualizarDados();
+    if (modalAberto) carregarMemoriaCompleta();
+  } catch (err) {
+    alert('Erro ao inserir aluno demo!');
+  }
+}
+
+// Tecla ESC para fechar modal
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalAberto) {
+    fecharModalMapaRAM();
+  }
+});
+
