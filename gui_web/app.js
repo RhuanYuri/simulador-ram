@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarDados();
   // Polling em tempo real a cada 300ms
   setInterval(atualizarDados, 300);
+
+  if (window.location.hash === '#expandir') {
+    setTimeout(abrirModalMapaRAM, 400);
+  }
 });
 
 // Busca o estado completo do hardware no back-end em C
@@ -105,8 +109,10 @@ function renderizarTabelaAlunos(alunos) {
     else if (aluno.status === 'R') { statusClass = 'reprovado'; statusLabel = 'Reprovado'; }
     else if (aluno.status === 'F') { statusClass = 'final'; statusLabel = 'Prova Final'; }
 
+    const addrDec = parseInt(aluno.endereco, 16);
+
     return `
-      <tr>
+      <tr style="cursor: pointer;" onclick="focarAlunoNoMapa(${addrDec})" title="Clique para inspecionar este aluno no Mapa da RAM">
         <td><strong>#${aluno.id}</strong></td>
         <td><strong>${aluno.nome}</strong></td>
         <td class="addr">${aluno.endereco}</td>
@@ -116,7 +122,7 @@ function renderizarTabelaAlunos(alunos) {
         <td>${aluno.freq}%</td>
         <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
         <td>
-          <button class="btn-trash" onclick="trancarMatricula(${aluno.id})" title="Trancar Matrícula (Liberar 24 B no HEAP)">
+          <button class="btn-trash" onclick="event.stopPropagation(); trancarMatricula(${aluno.id})" title="Trancar Matrícula (Liberar 24 B no HEAP)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </td>
@@ -284,6 +290,7 @@ let modalAberto = false;
 let memoriaCompletaCache = null;
 let filtroSegmentoAtivo = 'all';
 let celulaSelecionada = 0x0800;
+let alunoDestaqueBase = -1;
 let paginaHexAtiva = 0x800;
 
 function abrirModalMapaRAM() {
@@ -300,6 +307,21 @@ function fecharModalMapaRAM() {
   if (!modal) return;
   modal.classList.remove('open');
   modalAberto = false;
+}
+
+function focarAlunoNoMapa(addr) {
+  abrirModalMapaRAM();
+  celulaSelecionada = addr;
+  carregarMemoriaCompleta().then(() => {
+    inspecionarCelula(addr);
+    desenharCanvasModal();
+  });
+}
+
+function selecionarCelulaModal(addr) {
+  celulaSelecionada = addr;
+  inspecionarCelula(addr);
+  desenharCanvasModal();
 }
 
 // Carrega os 4096 bytes brutos do back-end em C
@@ -380,6 +402,81 @@ function inspecionarCelula(addr) {
   document.getElementById('insp-dec').textContent = bVal;
   document.getElementById('insp-bin').textContent = bBin;
   document.getElementById('insp-ascii').textContent = `'${bChar}'`;
+
+  // Atualiza Card Detalhado do Aluno na RAM se estiver no HEAP
+  const cardAluno = document.getElementById('card-aluno-detalhe');
+  const offsetHeap = addr - 0x800;
+  const alunoIdx = Math.floor(offsetHeap / 24);
+  const baseAluno = 0x800 + (alunoIdx * 24);
+
+  let alunoAtivoId = 0;
+  if (addr >= 0x800 && addr < 0xC00 && memoriaCompletaCache) {
+    const idHex = memoriaCompletaCache.hex.substr(baseAluno * 2, 2);
+    alunoAtivoId = parseInt(idHex, 16);
+  }
+
+  if (alunoAtivoId > 0 && cardAluno) {
+    cardAluno.style.display = 'flex';
+    alunoDestaqueBase = baseAluno;
+
+    let nomeAluno = '';
+    for (let i = 0; i < 15; i++) {
+      const chVal = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 1 + i) * 2, 2), 16);
+      if (chVal === 0) break;
+      nomeAluno += String.fromCharCode(chVal);
+    }
+
+    const p1Val = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 17) * 2, 2), 16);
+    const p2Val = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 18) * 2, 2), 16);
+    const mediaVal = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 19) * 2, 2), 16);
+    const freqVal = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 20) * 2, 2), 16);
+    const statusVal = parseInt(memoriaCompletaCache.hex.substr((baseAluno + 21) * 2, 2), 16);
+    const statusChar = (statusVal >= 65 && statusVal <= 90) ? String.fromCharCode(statusVal) : 'C';
+
+    document.getElementById('aluno-det-id').textContent = `ALUNO #${alunoAtivoId}`;
+    document.getElementById('aluno-det-nome').textContent = nomeAluno || `Aluno #${alunoAtivoId}`;
+    document.getElementById('aluno-det-p1').textContent = (p1Val / 10).toFixed(1);
+    document.getElementById('aluno-det-p1-addr').textContent = `End. 0x${(baseAluno + 17).toString(16).toUpperCase()}`;
+    document.getElementById('aluno-det-p2').textContent = (p2Val / 10).toFixed(1);
+    document.getElementById('aluno-det-p2-addr').textContent = `End. 0x${(baseAluno + 18).toString(16).toUpperCase()}`;
+    document.getElementById('aluno-det-media').textContent = mediaVal > 0 ? (mediaVal / 10).toFixed(1) : '-';
+    document.getElementById('aluno-det-media-addr').textContent = `End. 0x${(baseAluno + 19).toString(16).toUpperCase()}`;
+    document.getElementById('aluno-det-freq').textContent = `${freqVal}%`;
+    document.getElementById('aluno-det-freq-addr').textContent = `End. 0x${(baseAluno + 20).toString(16).toUpperCase()}`;
+    document.getElementById('aluno-det-faixa').textContent = `0x${baseAluno.toString(16).toUpperCase()} a 0x${(baseAluno + 23).toString(16).toUpperCase()} (24 Bytes Contíguos no HEAP)`;
+
+    const elStatus = document.getElementById('aluno-det-status');
+    if (statusChar === 'A') { elStatus.className = 'status-pill aprovado'; elStatus.textContent = 'APROVADO'; }
+    else if (statusChar === 'R') { elStatus.className = 'status-pill reprovado'; elStatus.textContent = 'REPROVADO'; }
+    else if (statusChar === 'F') { elStatus.className = 'status-pill final'; elStatus.textContent = 'PROVA FINAL'; }
+    else { elStatus.className = 'status-pill cursando'; elStatus.textContent = 'CURSANDO'; }
+
+    // Renderiza régua interativa dos 24 bytes
+    const labels24 = ['ID', 'N0', 'N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'N10', 'N11', 'N12', 'N13', 'N14', 'P1', 'P2', 'MED', 'FRQ', 'SIT', 'PD', 'PD', 'PD'];
+    let stripHtml = '';
+    for (let i = 0; i < 24; i++) {
+      const curAddr = baseAluno + i;
+      const curHex = memoriaCompletaCache.hex.substr(curAddr * 2, 2);
+      const curVal = parseInt(curHex, 16);
+      let curTxt = curHex;
+      if (i >= 1 && i <= 15 && curVal >= 32 && curVal <= 126) curTxt = String.fromCharCode(curVal);
+      else if (i === 17 || i === 18 || i === 19) curTxt = (curVal / 10).toFixed(1);
+      else if (i === 20) curTxt = `${curVal}%`;
+      else if (i === 21 && curVal >= 65 && curVal <= 90) curTxt = String.fromCharCode(curVal);
+
+      const isActive = (curAddr === addr);
+      stripHtml += `
+        <div class="byte-pill ${isActive ? 'active' : ''}" onclick="selecionarCelulaModal(${curAddr})" title="End. 0x${curAddr.toString(16).toUpperCase()}: 0x${curHex} (${curVal})">
+          <span class="pill-tag">${labels24[i]}</span>
+          <span class="pill-val">${curTxt}</span>
+        </div>
+      `;
+    }
+    document.getElementById('aluno-byte-strip').innerHTML = stripHtml;
+  } else {
+    if (cardAluno) cardAluno.style.display = 'none';
+    alunoDestaqueBase = -1;
+  }
 
   // Identifica Região e Significado
   let seg = '';
@@ -519,6 +616,12 @@ function desenharCanvasModal() {
 
     ctx.fillStyle = pertenceFiltro ? corBase : 'rgba(255,255,255,0.04)';
     ctx.fillRect(x, y, cellW - 0.5, cellH - 0.5);
+
+    // Destaque visual dos 24 bytes do aluno selecionado no HEAP
+    if (alunoDestaqueBase >= 0 && i >= alunoDestaqueBase && i < alunoDestaqueBase + 24) {
+      ctx.fillStyle = '#fbbf24'; // Dourado brilhante
+      ctx.fillRect(x, y, cellW - 0.5, cellH - 0.5);
+    }
 
     // Célula do MAR pulsante
     if (i === memoriaCompletaCache.mar) {

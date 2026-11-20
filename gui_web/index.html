@@ -290,6 +290,54 @@
 
         <!-- Lado Direito do Modal: Inspetor Detalhado da Célula e Ações Rápidas -->
         <div class="modal-inspector-pane">
+          <!-- FICHA COMPLETA DO ALUNO NA RAM (Exibida ao selecionar byte de aluno) -->
+          <div class="student-full-card" id="card-aluno-detalhe">
+            <div class="student-full-header">
+              <div class="student-full-title">
+                <span class="student-id-badge" id="aluno-det-id">ALUNO #1</span>
+                <h4 id="aluno-det-nome">Yuri Martins</h4>
+              </div>
+              <span class="status-pill aprovado" id="aluno-det-status">APROVADO</span>
+            </div>
+
+            <!-- Dados Legíveis e Claros -->
+            <div class="student-readable-grid">
+              <div class="readable-stat">
+                <span class="stat-lbl">Nota Prova 1</span>
+                <span class="stat-val" id="aluno-det-p1">8.5</span>
+                <span class="stat-byte" id="aluno-det-p1-addr">End. 0x0811</span>
+              </div>
+              <div class="readable-stat">
+                <span class="stat-lbl">Nota Prova 2</span>
+                <span class="stat-val" id="aluno-det-p2">9.0</span>
+                <span class="stat-byte" id="aluno-det-p2-addr">End. 0x0812</span>
+              </div>
+              <div class="readable-stat highlight-media">
+                <span class="stat-lbl">Média Final</span>
+                <span class="stat-val" id="aluno-det-media">8.7</span>
+                <span class="stat-byte" id="aluno-det-media-addr">End. 0x0813</span>
+              </div>
+              <div class="readable-stat">
+                <span class="stat-lbl">Frequência</span>
+                <span class="stat-val" id="aluno-det-freq">95%</span>
+                <span class="stat-byte" id="aluno-det-freq-addr">End. 0x0814</span>
+              </div>
+            </div>
+
+            <div class="student-mem-range">
+              <span>Bloco na RAM Física:</span>
+              <strong id="aluno-det-faixa">0x0800 a 0x0817 (24 Bytes Contíguos no HEAP)</strong>
+            </div>
+
+            <!-- Régua Visual dos 24 Bytes do Aluno na Memória -->
+            <div class="student-byte-strip-container">
+              <span class="strip-lbl">Mapeamento dos 24 Bytes Deste Aluno na RAM (O byte ativo brilha):</span>
+              <div class="student-byte-strip" id="aluno-byte-strip">
+                <!-- Preenchido via Javascript -->
+              </div>
+            </div>
+          </div>
+
           <!-- Card de Célula Selecionada -->
           <div class="inspector-card">
             <h3>Inspetor de Célula de Memória</h3>

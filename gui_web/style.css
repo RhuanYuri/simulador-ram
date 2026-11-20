@@ -1107,3 +1107,180 @@ body {
   min-width: 140px;
 }
 
+/* ==========================================================
+   FICHA COMPLETA DO ALUNO NA MEMÓRIA RAM (MODAL DEMO)
+   ========================================================== */
+.student-full-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(30, 20, 5, 0.4) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.15);
+  animation: fadeInCard 0.25s ease;
+}
+
+@keyframes fadeInCard {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.student-full-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  padding-bottom: 10px;
+}
+
+.student-full-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-id-badge {
+  background: #f59e0b;
+  color: #070b14;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.student-full-title h4 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Grid de Dados Legíveis */
+.student-readable-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.readable-stat {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.readable-stat.highlight-media {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.readable-stat .stat-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.readable-stat .stat-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.readable-stat.highlight-media .stat-val {
+  color: #38bdf8;
+}
+
+.readable-stat .stat-byte {
+  font-size: 9.5px;
+  color: #64748b;
+  font-family: var(--font-mono);
+}
+
+.student-mem-range {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.student-mem-range strong {
+  color: #f59e0b;
+  font-family: var(--font-mono);
+}
+
+/* Régua Visual dos 24 Bytes do Aluno */
+.student-byte-strip-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strip-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.student-byte-strip {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+
+.byte-pill {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.byte-pill:hover,
+.byte-pill.active {
+  background: #f59e0b;
+  border-color: #ffffff;
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
+.byte-pill.active .pill-tag,
+.byte-pill:hover .pill-tag {
+  color: #070b14;
+}
+
+.byte-pill.active .pill-val,
+.byte-pill:hover .pill-val {
+  color: #070b14;
+  font-weight: 800;
+}
+
+.pill-tag {
+  font-size: 8px;
+  color: #94a3b8;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pill-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+
