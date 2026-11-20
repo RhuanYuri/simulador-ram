@@ -38,3 +38,4 @@ gcc -O2 sistema_notas_sdl.c -o sistema_notas_sdl $(pkg-config --cflags --libs sd
 ./sistema_notas_sdl
 ```
 Pressione `Esc` ou feche a janela para sair.
+

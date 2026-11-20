@@ -16,3 +16,4 @@ gcc -O2 sistema_notas_sdl.c -o sistema_notas_sdl $(pkg-config --cflags --libs sd
 echo "[OK] Compilacao concluida com sucesso!"
 echo "Iniciando janela nativa SDL2 (1280x720)..."
 ./sistema_notas_sdl
+
