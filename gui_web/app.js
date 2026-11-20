@@ -386,25 +386,53 @@ function inspecionarCelula(addr) {
   let desc = '';
 
   if (addr < 256) {
-    seg = 'ROM (BIOS e Regras Imutáveis)';
-    if (addr === 0x0070) desc = 'Média Mínima da UFMA (7.0) - Protegida por Hardware!';
-    else if (addr === 0x0071) desc = 'Frequência Mínima (75%)';
-    else if (addr < 64) desc = 'Assinatura Digital de Inicialização do Sistema';
+    seg = 'ROM (BIOS / Firmware e Regimento UFMA)';
+    if (addr === 0x0070) desc = 'Média Mínima para Aprovação (7.0) [PROTEGIDO PELA MPU]';
+    else if (addr === 0x0071) desc = 'Frequência Mínima Obrigatória (75%) [PROTEGIDO PELA MPU]';
+    else if (addr === 0x0072) desc = 'Peso da Avaliação P1 (50%)';
+    else if (addr === 0x0073) desc = 'Peso da Avaliação P2 (50%)';
+    else if (addr === 0x0074) desc = 'Nota Máxima Permitida no Sistema (10.0)';
+    else if (addr === 0x0075) desc = 'Nota Mínima para Direito à Prova Final (4.0)';
+    else if (addr === 0x0076) desc = 'Carga Horária Total da Disciplina (60 Horas)';
+    else if (addr === 0x0077) desc = 'Limite Máximo de Faltas Permitidas (15 Faltas)';
+    else if (addr >= 0x0040 && addr <= 0x005F) desc = 'Vetor de Interrupção e Reset Vector da CPU (Ponteiro de Bootloader)';
+    else if (addr < 64) desc = `Assinatura de Boot do Firmware: '${bChar}' ("UFMA-CCET-DEINF...")`;
+    else if (addr >= 0x0080 && addr <= 0x00BF) desc = `Texto Normativo: Resolução CONSEPE UFMA N. 1826 ('${bChar}')`;
+    else if (addr >= 0x00C0 && addr <= 0x00FF) desc = `Diretiva MPU: Bloqueio de Escrita por Hardware (Somente Leitura)`;
     else desc = 'Célula de Firmware da Instituição';
   } else if (addr < 0x400) {
-    seg = 'TEXT (Código Executável / Opcodes)';
-    desc = 'Instrução compilada em Assembly das rotinas de cálculo acadêmico';
+    seg = 'TEXT (Código Executável / Opcodes Compilados)';
+    if (addr >= 0x0100 && addr <= 0x012F) {
+      desc = `Opcode Assembly da rotina 'calcular_media()' (Byte: 0x${bHex} - Instruções: PUSH EBP, MOV, ADD, SHR, RET)`;
+    } else if (addr >= 0x0130 && addr <= 0x015F) {
+      desc = `Opcode Assembly da rotina 'verificar_aprovacao()' (Byte: 0x${bHex} - Compara nota com 7.0 e define status)`;
+    } else if (addr >= 0x0160 && addr <= 0x018F) {
+      desc = `Opcode Assembly da rotina 'lancar_nota_barramento()' (Byte: 0x${bHex} - Movimentação via MAR/MBR)`;
+    } else if (addr >= 0x0190 && addr <= 0x01BF) {
+      desc = `Opcode Assembly da rotina 'trancar_matricula_heap()' (Byte: 0x${bHex} - Instrução REP STOSB de limpeza)`;
+    } else if (addr >= 0x01C0 && addr <= 0x01EF) {
+      desc = `Opcode da rotina de autoteste POST da BIOS (Byte: 0x${bHex} - Inicialização dos barramentos da CPU)`;
+    } else {
+      desc = 'Área de instruções compiladas do programa (Permissão de Leitura e Execução)';
+    }
   } else if (addr < 0x800) {
-    seg = 'DATA (Constantes Globais e Cabeçalhos)';
-    desc = 'Cadeia de texto ASCII fixa (Nome da disciplina / Cabeçalho)';
+    seg = 'DATA (Constantes Globais, Nomes e Cabeçalhos)';
+    if (addr >= 0x0400 && addr <= 0x043F) desc = `String Global: Nome da Disciplina e Código ('${bChar}')`;
+    else if (addr >= 0x0440 && addr <= 0x047F) desc = `String Global: Docente e Departamento Responsável ('${bChar}')`;
+    else if (addr >= 0x0480 && addr <= 0x04BF) desc = `String Global: Semestre Letivo e Laboratório de Hardware ('${bChar}')`;
+    else if (addr >= 0x04C0 && addr <= 0x04FF) desc = `String Global: Tabela de Status Acadêmicos ('${bChar}')`;
+    else if (addr >= 0x0500 && addr <= 0x053F) desc = `String Global: Cabeçalho das Colunas do Diário de Classe ('${bChar}')`;
+    else if (addr >= 0x0540 && addr <= 0x057F) desc = `String Global: Descrição do Sistema Integrado ('${bChar}')`;
+    else if (addr >= 0x0580 && addr <= 0x05BF) desc = `String Global: Mensagem de Boot Concluído ('${bChar}')`;
+    else desc = `Cadeia de texto ASCII terminada em \\0 (Caractere '${bChar}')`;
   } else if (addr < 0xC00) {
-    seg = 'HEAP (Alocação Dinâmica de Alunos)';
+    seg = 'HEAP (Alocação Dinâmica de Alunos - Bottom-Up)';
     const offsetHeap = addr - 0x800;
     const alunoNum = Math.floor(offsetHeap / 24) + 1;
     const campoIdx = offsetHeap % 24;
 
     if (!isOcupado) {
-      desc = `Espaço livre no HEAP disponível para novos alunos`;
+      desc = `Espaço livre no HEAP disponível para novas matrículas`;
     } else if (campoIdx === 0) {
       desc = `Byte de Matrícula/ID do Aluno #${alunoNum}`;
     } else if (campoIdx >= 1 && campoIdx <= 16) {
@@ -423,11 +451,21 @@ function inspecionarCelula(addr) {
       desc = `Byte de alinhamento estrutural do Aluno #${alunoNum}`;
     }
   } else {
-    seg = 'STACK (Pilha de Execução de Funções)';
-    if (addr >= memoriaCompletaCache.stack_sp) {
-      desc = 'Quadro de ativação ativo empilhado na execução do cálculo';
-    } else {
-      desc = 'Espaço livre reservado para crescimento da pilha (Top-Down)';
+    seg = 'STACK (Pilha de Execução de Funções - Top-Down)';
+    if (addr === 0x0FFF) desc = 'Quadro STACK: Endereço de Retorno para o OS/BIOS (0x00)';
+    else if (addr === 0x0FFE) desc = 'Quadro STACK: Argumento argc (Contagem = 1)';
+    else if (addr === 0x0FFD) desc = 'Quadro STACK: Ponteiro do vetor de argumentos argv';
+    else if (addr === 0x0FFC) desc = 'Quadro STACK: EBP Salvo da função principal main()';
+    else if (addr === 0x0FFB) desc = 'Quadro STACK: Endereço de Retorno (High Byte 0x01) da função calcular_medias()';
+    else if (addr === 0x0FFA) desc = 'Quadro STACK: Endereço de Retorno (Low Byte 0x30) da rotina';
+    else if (addr === 0x0FF9) desc = 'Quadro STACK: EBP Salvo do quadro da função de cálculo';
+    else if (addr === 0x0FF8) desc = 'Quadro STACK: Variável Local Temporária: \'soma_notas\' (Valor: 175)';
+    else if (addr === 0x0FF7) desc = 'Quadro STACK: Parâmetro empilhado: Nota P1 (8.5 / 85)';
+    else if (addr === 0x0FF6) desc = 'Quadro STACK: Parâmetro empilhado: Nota P2 (9.0 / 90)';
+    else if (addr === 0x0FF5) desc = 'Quadro STACK: Parâmetro empilhado: Frequência (95%)';
+    else if (addr === 0x0FF4) desc = 'Quadro STACK: Valor Retornado no Acumulador: Status \'A\' (Aprovado)';
+    else {
+      desc = 'Espaço livre na STACK reservado para novas chamadas de funções aninhadas';
     }
   }
 

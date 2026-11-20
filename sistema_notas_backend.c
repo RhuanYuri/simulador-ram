@@ -120,7 +120,7 @@ uint8_t ciclo_memr(uint16_t endereco, const char* motivo) {
     return g_mem.mbr;
 }
 
-/* Inicializa ou Restaura a Memória */
+/* Inicializa ou Restaura a Memória com Exemplos Vivos em TODAS as 5 Regiões */
 void inicializar_sistema_memoria() {
     memset(g_mem.dados, 0, sizeof(g_mem.dados));
     memset(g_mem.ocupado, 0, sizeof(g_mem.ocupado));
@@ -134,34 +134,152 @@ void inicializar_sistema_memoria() {
     g_mem.heap_pointer = INICIO_HEAP;
     g_mem.stack_pointer = TOPO_STACK;
 
-    // 1. Gravação de Fábrica na ROM (Regras e Assinatura da UFMA)
-    const char* sig = "UFMA-CCET-DEINF: SISTEMA DE NOTAS v2.0 (ARQ 2026)";
-    for (size_t i = 0; i < strlen(sig) && i < 64; i++) {
-        ciclo_memw((uint16_t)i, (uint8_t)sig[i], "Gravacao BIOS/ROM");
+    // =========================================================================
+    // 1. REGIÃO ROM (0x000 a 0x0FF - 256 Bytes): BIOS & REGIMENTO DA UFMA
+    // =========================================================================
+    // 1.1 Assinatura de Boot do Firmware
+    const char* rom_sig = "UFMA-CCET-DEINF: BIOS BOOTLOADER v2.0 - SISTEMA NOTAS (ARQ-2026)";
+    for (size_t i = 0; i < strlen(rom_sig) && i < 64; i++) {
+        ciclo_memw((uint16_t)i, (uint8_t)rom_sig[i], "ROM: Assinatura BIOS");
     }
-    // Parâmetros do Regimento Acadêmico na ROM (0x0070 a 0x007F)
-    ciclo_memw(0x0070, 70, "ROM: Media Minima Aprovacao (7.0)");
-    ciclo_memw(0x0071, 75, "ROM: Frequencia Minima (75%)");
-    ciclo_memw(0x0072, 50, "ROM: Peso Prova 1 (50%)");
-    ciclo_memw(0x0073, 50, "ROM: Peso Prova 2 (50%)");
-    ciclo_memw(0x0074, 100, "ROM: Nota Maxima Permitida (10.0)");
 
-    // Ativa Proteção de Hardware da ROM
+    // 1.2 Vetores de Interrupção e Reset Vector (0x0040 a 0x005F)
+    uint8_t reset_vec[] = { 0xEA, 0x00, 0x01, 0x00, 0xC3, 0x55, 0xAA, 0xFF,
+                            0x90, 0x90, 0xEB, 0x04, 0xFA, 0xF4, 0x00, 0x00 };
+    for (size_t i = 0; i < sizeof(reset_vec); i++) {
+        ciclo_memw(0x0040 + i, reset_vec[i], "ROM: Vetor de Reset e Interrupcao");
+    }
+
+    // 1.3 Parâmetros do Regimento Acadêmico da UFMA (0x0070 a 0x007F)
+    ciclo_memw(0x0070, 70,  "ROM: Media Minima Aprovacao (7.0)");
+    ciclo_memw(0x0071, 75,  "ROM: Frequencia Minima Obrigatoria (75%)");
+    ciclo_memw(0x0072, 50,  "ROM: Peso Avaliacao P1 (50%)");
+    ciclo_memw(0x0073, 50,  "ROM: Peso Avaliacao P2 (50%)");
+    ciclo_memw(0x0074, 100, "ROM: Nota Maxima Permitida (10.0)");
+    ciclo_memw(0x0075, 40,  "ROM: Nota Minima para Prova Final (4.0)");
+    ciclo_memw(0x0076, 60,  "ROM: Carga Horaria da Disciplina (60 Horas)");
+    ciclo_memw(0x0077, 15,  "ROM: Limite Maximo de Faltas (15 Faltas)");
+
+    // 1.4 Resolução do CONSEPE e Tabela de Códigos da MPU (0x0080 a 0x00FF)
+    const char* rom_consepe = "RESOLUCAO CONSEPE UFMA N. 1826: REGRAS E CRITERIOS OFICIAIS DE AVALIACAO";
+    for (size_t i = 0; i < strlen(rom_consepe) && i < 64; i++) {
+        ciclo_memw(0x0080 + i, (uint8_t)rom_consepe[i], "ROM: Texto Normativo");
+    }
+
+    const char* rom_mpu_msg = "CHIP MPU ATIVA: BLOQUEIO GRAVACAO 0x000-0x0FF (MEMORIA SOMENTE LEITURA)";
+    for (size_t i = 0; i < strlen(rom_mpu_msg) && i < 64; i++) {
+        ciclo_memw(0x00C0 + i, (uint8_t)rom_mpu_msg[i], "ROM: Mensagem da MPU");
+    }
+
+    // Trava de Hardware: Ativa a MPU da ROM
     g_mem.rom_protegida = 1;
 
-    // 2. Região TEXT (Opcodes de máquina simulados para cálculo)
-    uint8_t rotina_calc[] = { 0x55, 0x89, 0xE5, 0x8B, 0x45, 0x08, 0x03, 0x45, 0x0C, 0xD1, 0xE8, 0x5D, 0xC3 };
-    for (size_t i = 0; i < sizeof(rotina_calc); i++) {
-        ciclo_memw(INICIO_TEXT + i, rotina_calc[i], "Carga Instrucoes TEXT");
+    // =========================================================================
+    // 2. REGIÃO TEXT (0x100 a 0x3FF - 768 Bytes): INSTRUÇÕES COMPILADAS (OPCODES)
+    // =========================================================================
+    // Rotina 1: calcular_media (0x100 - PUSH EBP, MOV, ADD, SHR, POP, RET)
+    uint8_t op_calc_media[] = {
+        0x55, 0x89, 0xE5,             // push ebp; mov ebp, esp
+        0x8B, 0x45, 0x08,             // mov eax, [ebp+8]   (P1)
+        0x03, 0x45, 0x0C,             // add eax, [ebp+12]  (P2)
+        0xD1, 0xE8,                   // shr eax, 1         (divide por 2)
+        0x5D, 0xC3                    // pop ebp; ret
+    };
+    for (size_t i = 0; i < sizeof(op_calc_media); i++) {
+        ciclo_memw(0x0100 + i, op_calc_media[i], "TEXT: Opcode calcular_media");
     }
 
-    // 3. Região DATA (Constantes de tela e nomes da disciplina)
-    const char* header = "DISCIPLINA: ARQUITETURA DE COMPUTADORES - TURMA 2026";
-    for (size_t i = 0; i < strlen(header); i++) {
-        ciclo_memw(INICIO_DATA + i, (uint8_t)header[i], "Carga Strings DATA");
+    // Rotina 2: verificar_aprovacao (0x130 - CMP, JGE, MOV status, RET)
+    uint8_t op_verif_aprov[] = {
+        0x55, 0x89, 0xE5,             // push ebp; mov ebp, esp
+        0x8A, 0x45, 0x08,             // mov al, [ebp+8]    (media)
+        0x3C, 0x46,                   // cmp al, 70         (compara com 7.0)
+        0x7C, 0x06,                   // jl reprovado
+        0xB0, 0x41, 0xEB, 0x04,       // mov al, 'A'; jmp fim
+        0xB0, 0x52,                   // mov al, 'R'        (reprovado)
+        0x5D, 0xC3                    // pop ebp; ret
+    };
+    for (size_t i = 0; i < sizeof(op_verif_aprov); i++) {
+        ciclo_memw(0x0130 + i, op_verif_aprov[i], "TEXT: Opcode verificar_aprovacao");
     }
 
-    snprintf(g_mem.ultimo_log, sizeof(g_mem.ultimo_log), "Sistema inicializado com sucesso. ROM protegida por hardware.");
+    // Rotina 3: lancar_nota_barramento (0x160 - Movimentação via MAR/MBR)
+    uint8_t op_lancar_nota[] = {
+        0x55, 0x89, 0xE5,             // push ebp; mov ebp, esp
+        0x66, 0x8B, 0x55, 0x08,       // mov dx, [ebp+8]    (Endereco MAR)
+        0x8A, 0x45, 0x0C,             // mov al, [ebp+12]   (Dado MBR)
+        0x88, 0x02,                   // mov [edx], al      (Ciclo MEMW)
+        0x5D, 0xC3                    // pop ebp; ret
+    };
+    for (size_t i = 0; i < sizeof(op_lancar_nota); i++) {
+        ciclo_memw(0x0160 + i, op_lancar_nota[i], "TEXT: Opcode lancar_nota");
+    }
+
+    // Rotina 4: trancar_matricula_heap (0x190 - Zeramento de 24 bytes)
+    uint8_t op_trancar[] = {
+        0x55, 0x89, 0xE5,             // push ebp; mov ebp, esp
+        0x66, 0x8B, 0x7D, 0x08,       // mov di, [ebp+8]    (Base do Aluno)
+        0xB9, 0x18, 0x00,             // mov cx, 24         (Tamanho struct)
+        0x30, 0xC0,                   // xor al, al
+        0xF3, 0xAA,                   // rep stosb          (Zera 24 bytes no HEAP)
+        0x5D, 0xC3                    // pop ebp; ret
+    };
+    for (size_t i = 0; i < sizeof(op_trancar); i++) {
+        ciclo_memw(0x0190 + i, op_trancar[i], "TEXT: Opcode trancar_matricula");
+    }
+
+    // Rotina 5: rotina_post_bios (0x1C0 - Inicialização de hardware)
+    uint8_t op_post[] = {
+        0xFA, 0x31, 0xC0, 0x8E, 0xD8, 0x8E, 0xC0, 0xBC, 0xFF, 0x0F, 0xFB, 0xC3
+    };
+    for (size_t i = 0; i < sizeof(op_post); i++) {
+        ciclo_memw(0x01C0 + i, op_post[i], "TEXT: Opcode rotina_post_bios");
+    }
+
+    // =========================================================================
+    // 3. REGIÃO DATA (0x400 a 0x7FF - 1024 Bytes): STRINGS E CONSTANTES GLOBAIS
+    // =========================================================================
+    const char* data_strings[] = {
+        "DISCIPLINA: ARQUITETURA DE COMPUTADORES (CODIGO: INF02026)",
+        "DOCENTE RESPONSAVEL: DEPARTAMENTO DE INFORMATICA - CCET",
+        "SEMESTRE LETIVO: 2026.1 | LOCAL: LABORATORIO DE HARDWARE 02",
+        "TABELA STATUS: [APROVADO, REPROVADO, PROVA FINAL, CURSANDO]",
+        "CABECALHO: ID | NOME DO ALUNO | P1 | P2 | MEDIA | FREQ | SIT",
+        "SISTEMA: DIARIO ELETRONICO INTEGRADO A MEMORIA FISICA 4KB",
+        "MENSAGEM BOOT: SISTEMA OPERACIONAL SIMULADO CARREGADO COM EXITO"
+    };
+    uint16_t data_offsets[] = { 0x0400, 0x0440, 0x0480, 0x04C0, 0x0500, 0x0540, 0x0580 };
+
+    for (int s = 0; s < 7; s++) {
+        const char* str = data_strings[s];
+        uint16_t base = data_offsets[s];
+        for (size_t i = 0; i < strlen(str); i++) {
+            ciclo_memw(base + i, (uint8_t)str[i], "DATA: Constante String");
+        }
+        ciclo_memw(base + strlen(str), 0x00, "DATA: Terminador Nulo \\0");
+    }
+
+    // =========================================================================
+    // 4. REGIÃO STACK (0xC00 a 0xFFF - 1024 Bytes): PILHA DE EXECUÇÃO ATIVA
+    // =========================================================================
+    // Criamos um Quadro de Pilha (Stack Frame) realista ativo a partir de 0xFFF:
+    ciclo_memw(0x0FFF, 0x00, "STACK: Retorno para OS/BIOS (End. 0x00)");
+    ciclo_memw(0x0FFE, 0x01, "STACK: Argumento argc (1)");
+    ciclo_memw(0x0FFD, 0x20, "STACK: Ponteiro argv");
+    ciclo_memw(0x0FFC, 0xF0, "STACK: EBP Salvo da funcao main");
+    ciclo_memw(0x0FFB, 0x01, "STACK: Retorno calcular_medias (High Byte 0x01)");
+    ciclo_memw(0x0FFA, 0x30, "STACK: Retorno calcular_medias (Low Byte 0x30)");
+    ciclo_memw(0x0FF9, 0xE0, "STACK: EBP Salvo do quadro anterior");
+    ciclo_memw(0x0FF8, 0xAF, "STACK: Variavel local 'soma_temporaria' (175)");
+    ciclo_memw(0x0FF7, 85,   "STACK: Parametro empilhado: P1 = 8.5 (85)");
+    ciclo_memw(0x0FF6, 90,   "STACK: Parametro empilhado: P2 = 9.0 (90)");
+    ciclo_memw(0x0FF5, 95,   "STACK: Parametro empilhado: Frequencia = 95%");
+    ciclo_memw(0x0FF4, 'A',  "STACK: Retorno da comparacao: 'A' (Aprovado)");
+
+    // O Stack Pointer (SP) aponta para o topo da pilha ativa
+    g_mem.stack_pointer = 0x0FF4;
+
+    snprintf(g_mem.ultimo_log, sizeof(g_mem.ultimo_log), "Sistema inicializado com dados realistas em todas as 5 regioes.");
 }
 
 /* ==============================================================================
@@ -550,10 +668,12 @@ void* tratar_requisicao(void* arg) {
 int main() {
     inicializar_sistema_memoria();
 
-    // Cadastra 3 alunos iniciais para enriquecer a demonstração
+    // Cadastra 5 alunos iniciais (Autores do Projeto da UFMA) no HEAP
     cadastrar_aluno_simulado("Yuri Martins", 85, 90, 95);
     cadastrar_aluno_simulado("Caio Ferreira", 70, 75, 80);
     cadastrar_aluno_simulado("Danilo Lima", 95, 100, 100);
+    cadastrar_aluno_simulado("Raynara Alves", 80, 85, 90);
+    cadastrar_aluno_simulado("Rhua Sardinha", 60, 55, 75);
     calcular_medias_turma_simulada();
 
     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
