@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UFMA • Sistema Acadêmico em Memória Simulada (4 KB)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header Superior -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="logo-badge">UFMA / CCET</span>
+        <div>
+          <h1>Sistema de Notas Acadêmico &bull; Hardware Bus Monitor</h1>
+          <p class="subtitle">Memória RAM/ROM Simulada de 4 KB &bull; Barramento de 8 bits &bull; Back-end em C Puro</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-indicator online" id="backend-status">
+          <span class="pulse"></span>
+          <span>Back-end em C: Conectado</span>
+        </div>
+        <button class="btn-reset" onclick="executarReset()" title="Zerar e Reinicializar Memória">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 99 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Reset de Hardware
+        </button>
+      </div>
+    </header>
+
+    <!-- Conteúdo Principal Dividido em Duas Colunas -->
+    <main class="dashboard-grid">
+      <!-- Coluna da Esquerda: Aplicação do Professor -->
+      <section class="panel panel-app">
+        <div class="panel-header">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+            Diário de Classe &bull; Lançamento de Notas
+          </h2>
+          <span class="badge-tag">Armazenado no HEAP (0x800)</span>
+        </div>
+
+        <!-- Formulário de Cadastro de Aluno -->
+        <div class="student-form-card">
+          <h3>Matricular Novo Aluno na RAM</h3>
+          <form id="form-aluno" onsubmit="cadastrarAluno(event)">
+            <div class="form-row">
+              <div class="input-group flex-2">
+                <label for="nome-aluno">Nome Completo</label>
+                <input type="text" id="nome-aluno" placeholder="Ex: Ana Maria" required maxlength="15">
+              </div>
+              <div class="input-group">
+                <label for="p1-aluno">Nota P1 (0-10)</label>
+                <input type="number" id="p1-aluno" min="0" max="10" step="0.5" value="8.0" required>
+              </div>
+              <div class="input-group">
+                <label for="p2-aluno">Nota P2 (0-10)</label>
+                <input type="number" id="p2-aluno" min="0" max="10" step="0.5" value="7.5" required>
+              </div>
+              <div class="input-group">
+                <label for="freq-aluno">Freq (%)</label>
+                <input type="number" id="freq-aluno" min="0" max="100" value="85" required>
+              </div>
+            </div>
+            <button type="submit" class="btn-submit">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Gravar Aluno no HEAP via Barramento MEMW
+            </button>
+          </form>
+        </div>
+
+        <!-- Tabela do Diário de Classe -->
+        <div class="table-container">
+          <div class="table-header-bar">
+            <h3>Alunos na Turma (<span id="total-alunos-count">0</span>)</h3>
+            <div class="action-buttons-group">
+              <button class="btn-action btn-calc" onclick="calcularMedias()" title="Executa rotina na STACK simulada">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Calcular Médias (via STACK)
+              </button>
+              <button class="btn-action btn-danger" onclick="tentarHackearRom()" title="Tenta forçar alteração da média 7.0 na ROM">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Testar Violação da ROM (MPU)
+              </button>
+            </div>
+          </div>
+
+          <table class="students-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nome do Aluno</th>
+                <th>Endereço RAM</th>
+                <th>P1</th>
+                <th>P2</th>
+                <th>Média</th>
+                <th>Freq</th>
+                <th>Situação</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-alunos-corpo">
+              <tr>
+                <td colspan="9" class="empty-state">Carregando dados da memória simulada...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Alerta de Violação de Hardware -->
+        <div class="alert-box" id="alerta-mpu">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <h4>FALHA DE PROTEÇÃO DE MEMÓRIA (BUS_PROT_FAULT)</h4>
+            <p id="alerta-mpu-msg">A MPU de hardware bloqueou a tentativa de escrita na área de ROM!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Coluna da Direita: Telemetria de Hardware & Memória -->
+      <section class="panel panel-hardware">
+        <div class="panel-header">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+            Telemetria de Hardware & Memória
+          </h2>
+          <span class="badge-tag">Monitoramento em Tempo Real</span>
+        </div>
+
+        <!-- Barramento e Registradores -->
+        <div class="bus-mon-card">
+          <div class="reg-box">
+            <span class="reg-label">MAR (Memory Address Register)</span>
+            <div class="reg-value">
+              <span class="hex" id="val-mar-hex">0x000</span>
+              <span class="dec" id="val-mar-dec">(End. 0)</span>
+            </div>
+            <span class="reg-bits">12 Bits &bull; 0 a 4095</span>
+          </div>
+
+          <div class="reg-box">
+            <span class="reg-label">MBR (Memory Buffer Register)</span>
+            <div class="reg-value">
+              <span class="hex" id="val-mbr-hex">0x00</span>
+              <span class="char" id="val-mbr-char">'·'</span>
+              <span class="dec" id="val-mbr-dec">(0)</span>
+            </div>
+            <span class="reg-bits">8 Bits &bull; Barramento de Dados</span>
+          </div>
+
+          <div class="reg-box signal-box" id="box-sinal">
+            <span class="reg-label">Sinal de Controle</span>
+            <div class="signal-tag" id="val-sinal-tag">BUS_IDLE</div>
+            <span class="reg-bits" id="val-mpu-status">MPU: Protegida</span>
+          </div>
+        </div>
+
+        <!-- Segmentação de Memória -->
+        <div class="segmentation-card">
+          <h3>Mapeamento dos 5 Segmentos de Memória (4096 Bytes)</h3>
+          <div class="segment-bars">
+            <!-- ROM -->
+            <div class="segment-row">
+              <div class="seg-info">
+                <span class="seg-name color-rom">ROM (BIOS) [0x000–0x0FF]</span>
+                <span class="seg-stats" id="stats-rom">256 / 256 B (100%)</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill fill-rom" id="bar-rom" style="width: 100%;"></div></div>
+            </div>
+
+            <!-- TEXT -->
+            <div class="segment-row">
+              <div class="seg-info">
+                <span class="seg-name color-text">TEXT (Instruções) [0x100–0x3FF]</span>
+                <span class="seg-stats" id="stats-text">13 / 768 B</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill fill-text" id="bar-text" style="width: 2%;"></div></div>
+            </div>
+
+            <!-- DATA -->
+            <div class="segment-row">
+              <div class="seg-info">
+                <span class="seg-name color-data">DATA (Constantes) [0x400–0x7FF]</span>
+                <span class="seg-stats" id="stats-data">52 / 1024 B</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill fill-data" id="bar-data" style="width: 5%;"></div></div>
+            </div>
+
+            <!-- HEAP -->
+            <div class="segment-row">
+              <div class="seg-info">
+                <span class="seg-name color-heap">HEAP (Alunos &uarr;) [0x800–0xBFF]</span>
+                <span class="seg-stats" id="stats-heap">72 / 1024 B &bull; Topo: 0x848</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill fill-heap" id="bar-heap" style="width: 7%;"></div></div>
+            </div>
+
+            <!-- STACK -->
+            <div class="segment-row">
+              <div class="seg-info">
+                <span class="seg-name color-stack">STACK (Funções &darr;) [0xC00–0xFFF]</span>
+                <span class="seg-stats" id="stats-stack">0 / 1024 B &bull; SP: 0xFFF</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill fill-stack" id="bar-stack" style="width: 1%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap Visual da Memória 4 KB -->
+        <div class="matrix-card">
+          <div class="matrix-header">
+            <div>
+              <h3>Matriz Física de 4096 Células (4 KB)</h3>
+              <div class="matrix-legend">
+                <span class="leg-item"><span class="dot dot-rom"></span> ROM</span>
+                <span class="leg-item"><span class="dot dot-text"></span> TEXT</span>
+                <span class="leg-item"><span class="dot dot-data"></span> DATA</span>
+                <span class="leg-item"><span class="dot dot-heap"></span> HEAP</span>
+                <span class="leg-item"><span class="dot dot-stack"></span> STACK</span>
+              </div>
+            </div>
+            <button class="btn-expand-ram" onclick="abrirModalMapaRAM()" title="Abrir Mapa em Tela Cheia para Demonstração">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              Expandir Mapa da RAM
+            </button>
+          </div>
+          <canvas id="memory-canvas" width="400" height="120"></canvas>
+        </div>
+
+        <!-- Hex Dump em Tempo Real -->
+        <div class="dump-card">
+          <h3>Hex Dump da Região do MAR (<span id="dump-range-label">0x000 a 0x01F</span>)</h3>
+          <div class="dump-grid" id="dump-grid-container">
+            <!-- Preenchido via Javascript -->
+          </div>
+        </div>
+
+        <!-- Log de Operações de Hardware -->
+        <div class="log-card">
+          <div class="log-title">Última Operação de Hardware:</div>
+          <div class="log-content" id="log-text">Aguardando operações no barramento...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL EXPANDIDO: MAPA DA RAM PARA DEMONSTRAÇÃO E BANCAS -->
+  <div id="modal-ram-expandido" class="modal-ram-overlay">
+    <div class="modal-ram-container">
+      <div class="modal-ram-header">
+        <div class="modal-ram-title">
+          <span class="badge-tag">Modo Demonstração de Bancas</span>
+          <h2>Visualizador Expandido da Memória Física (4096 Bytes)</h2>
+        </div>
+
+        <!-- Filtros Rápidos de Segmentos -->
+        <div class="modal-ram-filters">
+          <button class="filter-btn active" data-filter="all" onclick="filtrarSegmentoModal('all')">Todos (4096 B)</button>
+          <button class="filter-btn f-rom" data-filter="rom" onclick="filtrarSegmentoModal('rom')">ROM (0x000–0x0FF)</button>
+          <button class="filter-btn f-text" data-filter="text" onclick="filtrarSegmentoModal('text')">TEXT (0x100–0x3FF)</button>
+          <button class="filter-btn f-data" data-filter="data" onclick="filtrarSegmentoModal('data')">DATA (0x400–0x7FF)</button>
+          <button class="filter-btn f-heap" data-filter="heap" onclick="filtrarSegmentoModal('heap')">HEAP (0x800–0xBFF)</button>
+          <button class="filter-btn f-stack" data-filter="stack" onclick="filtrarSegmentoModal('stack')">STACK (0xC00–0xFFF)</button>
+        </div>
+
+        <button class="modal-close-btn" onclick="fecharModalMapaRAM()" title="Fechar (Esc)">&times;</button>
+      </div>
+
+      <div class="modal-ram-body">
+        <!-- Lado Esquerdo do Modal: Canvas Gigante em Alta Definição -->
+        <div class="modal-canvas-pane">
+          <div class="canvas-controls-bar">
+            <span>Grid Físico: 64 colunas &times; 64 linhas (Passe o mouse ou clique em qualquer célula para inspecionar)</span>
+            <div class="mini-legend">
+              <span class="color-rom">■ ROM</span>
+              <span class="color-text">■ TEXT</span>
+              <span class="color-data">■ DATA</span>
+              <span class="color-heap">■ HEAP</span>
+              <span class="color-stack">■ STACK</span>
+            </div>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="modal-ram-canvas" width="600" height="600"></canvas>
+          </div>
+        </div>
+
+        <!-- Lado Direito do Modal: Inspetor Detalhado da Célula e Ações Rápidas -->
+        <div class="modal-inspector-pane">
+          <!-- FICHA COMPLETA DO ALUNO NA RAM (Exibida ao selecionar byte de aluno) -->
+          <div class="student-full-card" id="card-aluno-detalhe">
+            <div class="student-full-header">
+              <div class="student-full-title">
+                <span class="student-id-badge" id="aluno-det-id">ALUNO #1</span>
+                <h4 id="aluno-det-nome">Yuri Martins</h4>
+              </div>
+              <span class="status-pill aprovado" id="aluno-det-status">APROVADO</span>
+            </div>
+
+            <!-- Dados Legíveis e Claros -->
+            <div class="student-readable-grid">
+              <div class="readable-stat">
+                <span class="stat-lbl">Nota Prova 1</span>
+                <span class="stat-val" id="aluno-det-p1">8.5</span>
+                <span class="stat-byte" id="aluno-det-p1-addr">End. 0x0811</span>
+              </div>
+              <div class="readable-stat">
+                <span class="stat-lbl">Nota Prova 2</span>
+                <span class="stat-val" id="aluno-det-p2">9.0</span>
+                <span class="stat-byte" id="aluno-det-p2-addr">End. 0x0812</span>
+              </div>
+              <div class="readable-stat highlight-media">
+                <span class="stat-lbl">Média Final</span>
+                <span class="stat-val" id="aluno-det-media">8.7</span>
+                <span class="stat-byte" id="aluno-det-media-addr">End. 0x0813</span>
+              </div>
+              <div class="readable-stat">
+                <span class="stat-lbl">Frequência</span>
+                <span class="stat-val" id="aluno-det-freq">95%</span>
+                <span class="stat-byte" id="aluno-det-freq-addr">End. 0x0814</span>
+              </div>
+            </div>
+
+            <div class="student-mem-range">
+              <span>Bloco na RAM Física:</span>
+              <strong id="aluno-det-faixa">0x0800 a 0x0817 (24 Bytes Contíguos no HEAP)</strong>
+            </div>
+
+            <!-- Régua Visual dos 24 Bytes do Aluno na Memória -->
+            <div class="student-byte-strip-container">
+              <span class="strip-lbl">Mapeamento dos 24 Bytes Deste Aluno na RAM (O byte ativo brilha):</span>
+              <div class="student-byte-strip" id="aluno-byte-strip">
+                <!-- Preenchido via Javascript -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Célula Selecionada -->
+          <div class="inspector-card">
+            <h3>Inspetor de Célula de Memória</h3>
+            <div class="inspector-field">
+              <span class="f-label">Endereço Físico:</span>
+              <span class="f-val addr" id="insp-addr">0x0800 (Decimal 2048)</span>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Segmento Lógico:</span>
+              <span class="f-val" id="insp-seg">HEAP (Alocação Dinâmica)</span>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Dado Armazenado:</span>
+              <div class="byte-decomposed">
+                <div class="b-box"><span class="b-sub">HEX</span><span id="insp-hex" class="b-txt">0x01</span></div>
+                <div class="b-box"><span class="b-sub">DEC</span><span id="insp-dec" class="b-txt">1</span></div>
+                <div class="b-box"><span class="b-sub">BIN</span><span id="insp-bin" class="b-txt">00000001</span></div>
+                <div class="b-box"><span class="b-sub">ASCII</span><span id="insp-ascii" class="b-txt">'·'</span></div>
+              </div>
+            </div>
+            <div class="inspector-field">
+              <span class="f-label">Significado Arquitetural:</span>
+              <span class="f-desc" id="insp-desc">ID do primeiro aluno cadastrado na turma</span>
+            </div>
+          </div>
+
+          <!-- Ações de Demonstração ao Vivo dentro do Modal -->
+          <div class="demo-actions-card">
+            <h3>Disparadores em Tempo Real</h3>
+            <p>Execute operações ao vivo para ver o mapa da RAM reagir na hora:</p>
+            <div class="demo-btns-grid">
+              <button class="btn-demo btn-demo-student" onclick="inserirAlunoDemo()">
+                + Inserir Aluno Demo no HEAP
+              </button>
+              <button class="btn-demo btn-demo-calc" onclick="calcularMedias()">
+                ⚡ Processar Médias na STACK
+              </button>
+              <button class="btn-demo btn-demo-hack" onclick="tentarHackearRom()">
+                🚨 Simular Invasão na ROM (MPU)
+              </button>
+              <button class="btn-demo btn-demo-reset" onclick="executarReset()">
+                🔄 Resetar Memória
+              </button>
+            </div>
+          </div>
+
+          <!-- Hex View Contínua -->
+          <div class="continuous-hex-card">
+            <div class="hex-range-selector">
+              <h3>Visualizador Hexadecimal</h3>
+              <select id="select-hex-page" onchange="mudarPaginaHexModal(this.value)">
+                <option value="0x000">0x000–0x0FF (ROM / BIOS)</option>
+                <option value="0x100">0x100–0x3FF (TEXT / Instruções)</option>
+                <option value="0x400">0x400–0x7FF (DATA / Constantes)</option>
+                <option value="0x800" selected>0x800–0xBFF (HEAP / Alunos)</option>
+                <option value="0xC00">0xC00–0xFFF (STACK / Pilha)</option>
+              </select>
+            </div>
+            <div class="hex-continuous-view" id="modal-hex-view">
+              <!-- Preenchido via Javascript -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
